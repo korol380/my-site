@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>3D Zombie Tower Defense</title>
+    <style>
+        body {
+            margin: 0;
+            background-color: #ffffff;
+            color: #000;
+            font-family: sans-serif;
+            overflow: hidden;
+            user-select: none;
+        }
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(255,255,255,0.85);
+            padding: 15px;
+            border-radius: 8px;
+            border: 2px solid #ccc;
+            font-size: 16px;
+            font-weight: bold;
+            line-height: 1.5;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        #shop {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255,255,255,0.9);
+            padding: 15px;
+            border-radius: 10px;
+            display: flex;
+            gap: 15px;
+            border: 2px solid #aaa;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+        }
+        .shop-item {
+            padding: 10px 15px;
+            background: #f0f0f0;
+            border: 2px solid #bbb;
+            cursor: pointer;
+            border-radius: 6px;
+            text-align: center;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+        .shop-item:hover {
+            background: #e0e0e0;
+            border-color: #888;
+        }
+        .shop-item.selected {
+            border-color: #2196F3;
+            background: #e3f2fd;
+        }
+        #controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: bold;
+            background: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        button:hover { background: #1e88e5; }
+        button:disabled { background: #bbb; cursor: not-allowed; }
+        #msg {
+            position: absolute;
+            top: 85px;
+            right: 20px;
+            font-size: 16px;
+            font-weight: bold;
+            color: #d32f2f;
+            background: rgba(255,255,255,0.8);
+            padding: 5px 10px;
+            border-radius: 4px;
+        }
+        #hint {
+            position: absolute;
+            bottom: 120px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.7);
+            color: #fff;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            pointer-events: none;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+    <div id="ui">
+        <div>Уровень: <span id="lblLevel">1/5</span></div>
+        <div>Раунд: <span id="lblWave">1/15</span></div>
+        <div>Деньги: $<span id="lblMoney">400</span></div>
+        <div>Жизни: <span id="lblLives">3</span></div>
+    </div>
+
+    <div id="hint">Зажми Правую Кнопку Мыши (ПКМ) и двигай, чтобы вращать камеру</div>
+
+    <div id="shop">
+        <div class="shop-item" onclick="selectTower(0)" id="btnTower0">
+            <strong>Пулемет</strong><br>Цена: $100<br>Цель: Земля
+        </div>
+        <div class="shop-item" onclick="selectTower(1)" id="btnTower1">
+            <strong>Зенитка</strong><br>Цена: $150<br>Цель: Воздух
+        </div>
+        <div class="shop-item" onclick="selectTower(2)" id="btnTower2">
+            <strong>Универсал</strong><br>Цена: $250<br>Цель: Все
+        </div>
+    </div>
+
+    <div id="controls">
+        <button id="btnStart" onclick="startWave()">Старт Раунда</button>
+    </div>
+    <div id="msg"></div>
+
+<script>
+// Игровая логика и состояние
+let level = 1, wave = 1, money = 400, lives = 3;
+let gameOver = false, gameWon = false, waveInProgress = false;
+const maxLevels = 5, maxWaves = 15;
+
+const cols = 20, rows = 13;
+const cellSize = 3; // масштаб клеток в 3D мире
+
+let grid = [];
+let path = [];
+let platforms = [];
+let towers = [];
+let enemies = [];
+let projectiles = [];
+let selectedTowerType = null;
+
+const towerTypes = [
+    { name: 'Пулемет', cost: 100, range: 9, damage: 18, fireRate: 25, color: 0x2e7d32, targets: ['normal', 'fast'] },
+    { name: 'Зенитка', cost: 150, range: 15, damage: 45, fireRate: 40, color: 0x1565c0, targets: ['flying'] },
+    { name: 'Универсал', cost: 250, range: 11, damage: 25, fireRate: 20, color: 0x6a1b9a, targets: ['normal', 'fast', 'flying'] }
+];
+
+// 3D Переменные Three.js
+let scene, camera, renderer;
+let mapContainer; // Контейнер для блоков карты, чтобы легко очищать уровень
+let raycaster, mouse;
+let isRightMouseDown = false;
+let prevMousePosition = { x: 0, y: 0 };
+// Углы вращения камеры вокруг центра карты
+let cameraAngleX = Math.PI / 4; 
+let cameraAngleY = Math.PI / 6;
+let cameraRadius = 45;
+
+init3D();
+generateMap();
+updateUI();
+animate();
+
+function init3D() {
+    // 1. Создание сцены с белым фоном
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xffffff);
+
+    // 2. Камера
+    camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 1000);
+    updateCameraPosition();
+
+    // 3. Рендерер с тенями
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    document.body.appendChild(renderer.domElement);
+
+    // 4. Освещение
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambientLight);
+
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    dirLight.position.set(20, 40, 20);
+    dirLight.castShadow = true;
+    dirLight.shadow.mapSize.width = 2048;
+    dirLight.shadow.mapSize.height = 2048;
+    dirLight.shadow.camera.near = 0.5;
+    dirLight.shadow.camera.far = 100;
+    const d = 40;
+    dirLight.shadow.camera.left = -d;
+    dirLight.shadow.camera.right = d;
+    dirLight.shadow.camera.top = d;
+    dirLight.shadow.camera.bottom = -d;
+    scene.add(dirLight);
+
+    mapContainer = new THREE.Group();
+    scene.add(mapContainer);
+
+    // Рейкастинг для кликов по платформам
+    raycaster = new THREE.Raycaster();
+    mouse = new THREE.Vector2();
+
+    // Обработчики мыши для вращения камеры (ПКМ) и кликов (ЛКМ)
+    window.addEventListener('mousedown', onMouseDown);
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+    window.addEventListener('click', onSceneClick);
+    window.addEventListener('resize', onWindowResize);
+    // Отключаем контекстное меню при нажатии ПКМ
+    window.addEventListener('contextmenu', e => e.preventDefault());
+}
+
+function updateCameraPosition() {
+    // Вычисление позиции камеры на сфере вокруг центра игрового поля
+    const centerX = (cols * cellSize) / 2;
+    const centerZ = (rows * cellSize) / 2;
+
+    camera.position.x = centerX + cameraRadius * Math.sin(cameraAngleX) * Math.cos(cameraAngleY);
+    camera.position.y = cameraRadius * Math.sin(cameraAngleY) + 2;
+    camera.position.z = centerZ + cameraRadius * Math.cos(cameraAngleX) * Math.cos(cameraAngleY);
+    camera.lookAt(centerX, 0, centerZ);
+}
+
+// Логика управления камерой через зажатую ПКМ
+function onMouseDown(e) {
+    if (e.button === 2) { // ПКМ
+        isRightMouseDown = true;
+        prevMousePosition = { x: e.clientX, y: e.clientY };
+    }
+}
+
+function onMouseMove(e) {
+    if (isRightMouseDown) {
+        const deltaX = e.clientX - prevMousePosition.x;
+        const deltaY = e.clientY - prevMousePosition.y;
+
+        cameraAngleX -= deltaX * 0.007;
+        cameraAngleY += deltaY * 0.007;
+
+        // Ограничение по вертикали, чтобы камера не переворачивалась
+        cameraAngleY = Math.max(0.1, Math.min(Math.PI / 2 - 0.05, cameraAngleY));
+
+        prevMousePosition = { x: e.clientX, y: e.clientY };
+        updateCameraPosition();
+    }
+}
+
+function onMouseUp(e) {
+    if (e.button === 2) isRightMouseDown = false;
+}
+
+function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+// Генерация карты
+function generateMap() {
+    // Очищаем старые 3D объекты
+    while(mapContainer.children.length > 0){
+        mapContainer.remove(mapContainer.children[0]);
+    }
+
+    grid = Array(rows).fill().map(() => Array(cols).fill(0));
+    path = [];
+    platforms = [];
+    towers = [];
+    projectiles = [];
+    enemies = [];
+
+    let cx = 0;
+    let cy = Math.floor(Math.random() * (rows - 4)) + 2;
+    path.push({x: cx, y: cy});
+    grid[cy][cx] = 1;
+
+    while (cx < cols - 1) {
+        let r = Math.random();
+        if (r < 0.5 || cx < 2) {
+            cx++;
+        } else if (r < 0.75 && cy > 1 && grid[cy-1][cx] === 0) {
+            cy--;
+        } else if (cy < rows - 2 && grid[cy+1][cx] === 0) {
+            cy++;
+        }
+        if (grid[cy][cx] === 0) {
+            path.push({x: cx, y: cy});
+            grid[cy][cx] = 1;
+        }
+    }
+
+    let potentialPlatforms = [];
+    for (let p of path) {
+        let dirs = [{x:0, y:1}, {x:0, y:-1}, {x:1, y:0}, {x:-1, y:0}];
+        for (let d of dirs) {
+            let nx = p.x + d.x;
+            let ny = p.y + d.y;
+            if (nx >= 0 && nx < cols && ny >= 0 && ny < rows && grid[ny][nx] === 0) {
+                if (!potentialPlatforms.some(pf => pf.x === nx && pf.y === ny)) {
+                    potentialPlatforms.push({x: nx, y: ny});
+                }
+            }
+        }
+    }
+
+    potentialPlatforms.sort(() => Math.random() - 0.5);
+    let count = Math.floor(Math.random() * 7) + 13; // 13-19 платформ
+    for (let i = 0; i < Math.min(count, potentialPlatforms.length); i++) {
+        let pf = potentialPlatforms[i];
+        grid[pf.y][pf.x] = 2;
+    }
+
+    // Создаем детальные 3D Меши для карты
+    // Материалы
+    const roadMat = new THREE.MeshStandardMaterial({ color: 0x554433, roughness: 0.9 });
+    const grassMat = new THREE.MeshStandardMaterial({ color: 0xe0e0e0, roughness: 1.0 }); // светлая основа под белый фон
+    
+    // Детальный текстурированный/составной материал для серых платформ
+    const platformBaseMat = new THREE.MeshStandardMaterial({ color: 0x777777, roughness: 0.4, metalness: 0.2 });
+    const platformTopMat = new THREE.MeshStandardMaterial({ color: 0x999999, roughness: 0.2 });
+
+    const geoBlock = new THREE.BoxGeometry(cellSize, 0.5, cellSize);
+    const geoPlatformBase = new THREE.BoxGeometry(cellSize, 0.8, cellSize);
+    const geoPlatformTop = new THREE.BoxGeometry(cellSize * 0.85, 0.1, cellSize * 0.85);
+
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            let x = c * cellSize + cellSize/2;
+            let z = r * cellSize + cellSize/2;
+
+            if (grid[r][c] === 1) {
+                // Дорога
+                let mesh = new THREE.Mesh(geoBlock, roadMat);
+                mesh.position.set(x, 0.25, z);
+                mesh.receiveShadow = true;
+                mapContainer.add(mesh);
+            } else if (grid[r][c] === 2) {
+                // Детальная серая платформа из двух уровней
+                let group = new THREE.Group();
+                
+                let base = new THREE.Mesh(geoPlatformBase, platformBaseMat);
+                base.position.set(0, 0.4, 0);
+                base.castShadow = true;
+                base.receiveShadow = true;
+                group.add(base);
+
+                let top = new THREE.Mesh(geoPlatformTop, platformTopMat);
+                top.position.set(0, 0.85, 0);
+                top.castShadow = true;
+                group.add(top);
+
+                group.position.set(x, 0, z);
+                mapContainer.add(group);
+
+                // Сохраняем для логики кликов
+                platforms.push({ x: c, y: r, worldX: x, worldZ: z, mesh: base, tower: null });
+            } else {
+                // Декоративная плитка окружения
+                let mesh = new THREE.Mesh(geoBlock, grassMat);
+                mesh.position.set(x, 0.1, z);
+                mesh.receiveShadow = true;
+                mapContainer.add(mesh);
+            }
+        }
+    }
+
+    // Вход (Пещера спавна) - Фиолетовая арка
+    let startX = path[0].x * cellSize + cellSize/2;
+    let startZ = path[0].y * cellSize + cellSize/2;
+    buildArch(startX, startZ, 0x8e24aa);
+
+    // Выход (Финальная пещера исхода) - Темно-красная арка
+    let endX = path[path.length-1].x * cellSize + cellSize/2;
+    let endZ = path[path.length-1].y * cellSize + cellSize/2;
+    buildArch(endX, endZ, 0xb71c1c);
+}
+
+// Детализированная постройка ворот/пещер
+function buildArch(x, z, colorCode) {
+    const mat = new THREE.MeshStandardMaterial({ color: colorCode, roughness: 0.5 });
+    const p1 = new THREE.Mesh(new THREE.BoxGeometry(0.5, 2.5, 0.5), mat);
+    p1.position.set(x - 1, 1.25, z);
+    p1.castShadow = true;
+    mapContainer.add(p1);
+
+    const p2 = new THREE.Mesh(new THREE.BoxGeometry(0.5, 2.5, 0.5), mat);
+    p2.position.set(x + 1, 1.25, z);
+    p2.castShadow = true;
+    mapContainer.add(p2);
+
+    const top = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.5, 0.5), mat);
+    top.position.set(x, 2.5, z);
+    top.castShadow = true;
+    mapContainer.add(top);
+}
+
+// Выбор башни в магазине
+function selectTower(index) {
+    if (money < towerTypes[index].cost) {
+        document.getElementById('msg').innerText = "Недостаточно денег!";
+        return;
+    }
+    selectedTowerType = index;
+    for(let i=0; i<3; i++) document.getElementById('btnTower' + i).classList.remove('selected');
+    document.getElementById('btnTower' + index).classList.add('selected');
+    document.getElementById('msg').innerText = `Выбрана: ${towerTypes[index].name}. Кликни по серой платформе.`;
+}
+
+// Клик ЛКМ для установки пушки через Raycast
+function onSceneClick(e) {
+    if (selectedTowerType === null) return;
+    if (e.button !== 0) return; // Только ЛКМ
+
+    // Преобразуем координаты мыши в экранные (-1 до 1)
+    mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+    raycaster.setFromCamera(mouse, camera);
+    // Ищем пересечение с объектами платформ
+    let meshesToIntersect = platforms.map(p => p.mesh);
+    const intersects = raycaster.intersectObjects(meshesToIntersect);
+
+    if (intersects.length > 0) {
+        let clickedMesh = intersects[0].object;
+        let pf = platforms.find(p => p.mesh === clickedMesh);
+
+        if (pf && pf.tower === null) {
+            let type = towerTypes[selectedTowerType];
+            if (money >= type.cost) {
+                money -= type.cost;
+                
+                // Строим детальную пушку
+                let towerGroup = createDetailedTowerMesh(type);
+                towerGroup.position.set(pf.worldX, 0.9, pf.worldZ);
+                scene.add(towerGroup);
+
+                let newTower = {
+                    group: towerGroup,
+                    type: type,
+                    cooldown: 0,
+                    x: pf.worldX,
+                    z: pf.worldZ
+                };
+                
+                towers.push(newTower);
+                pf.tower = newTower;
+
+                document.getElementById('msg').innerText = "Пушка установлена!";
+                document.getElementById('btnTower' + selectedTowerType).classList.remove('selected');
+                selectedTowerType = null;
+                updateUI();
+            }
+        }
+    }
+}
+
+// Создание детальной модели пушки
+function createDetailedTowerMesh(type) {
+    const group = new THREE.Group();
+    
+    // Основание (поворотная платформа)
+    const baseMat = new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.6, roughness: 0.2 });
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 1, 0.3, 16), baseMat);
+    base.position.y = 0.15;
+    base.castShadow = true;
+    group.add(base);
+
+    // Основной корпус пушки
+    const bodyMat = new THREE.MeshStandardMaterial({ color: type.color, metalness: 0.5, roughness: 0.3 });
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.7, 0.9), bodyMat);
+    body.position.y = 0.65;
+    body.castShadow = true;
+    group.add(body);
+
+    // Дуло (или два дула для Зенитки)
+    const barrelMat = new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.8, roughness: 0.1 });
+    if (type.name === 'Зенитка') {
+        // Двойное длинное дуло, поднятое вверх
+        let b1 = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 1.4, 8), barrelMat);
+        b1.rotation.x = Math.PI / 3; // направлено вверх
+        b1.position.set(-0.25, 1.0, 0.4);
+        b1.castShadow = true;
+        group.add(b1);
+
+        let b2 = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 1.4, 8), barrelMat);
+        b2.rotation.x = Math.PI / 3;
+        b2.position.set(0.25, 1.0, 0.4);
+        b2.castShadow = true;
+        group.add(b2);
+    } else {
+        // Обычное дуло вперед
+        let barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 1.0, 8), barrelMat);
+        barrel.rotation.x = Math.PI / 2;
+        barrel.position.set(0, 0.65, 0.6);
+        barrel.castShadow = true;
+        group.add(barrel);
+    }
+
+    return group;
+}
+
+// Генерация врагов
+function generateWaveEnemies() {
+    let list = [];
+    let count = 5 + wave * 2;
+
+    if (wave <= 3) {
+        for(let i=0; i<count; i++) list.push('normal');
+    } else if (wave <= 5) {
+        for(let i=0; i<count; i++) list.push(Math.random() > 0.5 ? 'normal' : 'fast');
+    } else if (wave <= 10) {
+        for(let i=0; i<count; i++) {
+            let r = Math.random();
+            if (r < 0.4) list.push('normal');
+            else if (r < 0.7) list.push('fast');
+            else list.push('flying');
+        }
+    } else {
+        let flyingBonus = wave - 10;
+        for(let i=0; i<flyingBonus; i++) list.push('flying');
+        for(let i=0; i<count; i++) {
+            let r = Math.random();
+            if (r < 0.4) list.push('normal');
+            else if (r < 0.7) list.push('fast');
+            else list.push('flying');
+        }
+    }
+
+    enemies = [];
+    list.forEach((type, index) => {
+        let hp = 50 + wave * 15;
+        let speed = 0.04;
+        let reward = 50;
+        let color = 0x388e3c; // Обычный - зеленый
+
+        if (type === 'fast') {
+            hp = Math.floor(hp * 0.6);
+            speed = 0.09;
+            reward = 75;
+            color = THREE.MathUtils.randInt(0,1) ? 0xf57c00 : 0xe65100; // Быстрый - оранжевые оттенки
+        } else if (type === 'flying') {
+            hp = Math.floor(hp * 0.8);
+            speed = 0.06;
+            reward = 100;
+            color = 0x00b0ff; // Летающий - голубой
+        }
+
+        // Создаем детального 3D Зомби
+        let zombieGroup = createDetailedZombieMesh(type, color);
+        zombieGroup.position.set(path[0].x * cellSize + cellSize/2, type === 'flying' ? 3.5 : 0.5, path[0].y * cellSize + cellSize/2);
+        zombieGroup.visible = false; // Скрыт до спавна
+        scene.add(zombieGroup);
+
+        enemies.push({
+            type: type,
+            hp: hp,
+            maxHp: hp,
+            speed: speed,
+            reward: reward,
+            mesh: zombieGroup,
+            pathIndex: 0,
+            x: zombieGroup.position.x,
+            z: zombieGroup.position.z,
+            spawnDelay: index * 40
+        });
+    });
+}
+
+// Детальный меш зомби (голова, тело, руки)
+function createDetailedZombieMesh(type, colorCode) {
+    const group = new THREE.Group();
+    const mat = new THREE.MeshStandardMaterial({ color: colorCode, roughness: 0.6 });
+    const clothesMat = new THREE.MeshStandardMaterial({ color: type==='fast'? 0x333333 : 0x1a237e, roughness: 0.7 });
+
+    // Тело / Рубашка
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.8, 0.4), clothesMat);
+    body.position.y = 0.6;
+    body.castShadow = true;
+    group.add(body);
+
+    // Голова
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.4), mat);
+    head.position.y = 1.1;
+    head.castShadow = true;
+    group.add(head);
+
+    // Руки (вытянуты вперед, как у зомби)
+    const armGeo = new THREE.BoxGeometry(0.15, 0.15, 0.5);
+    const leftArm = new THREE.Mesh(armGeo, mat);
+    leftArm.position.set(-0.35, 0.7, 0.25);
+    leftArm.castShadow = true;
+    group.add(leftArm);
+
+    const rightArm = new THREE.Mesh(armGeo, mat);
+    rightArm.position.set(0.35, 0.7, 0.25);
+    rightArm.castShadow = true;
+    group.add(rightArm);
+
+    // Если летающий, добавим ему полупрозрачные крылья
+    if (type === 'flying') {
+        const wingMat = new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.6, side: THREE.DoubleSide });
+        const wingGeo = new THREE.PlaneGeometry(1.2, 0.4);
+        
+        const leftWing = new THREE.Mesh(wingGeo, wingMat);
+        leftWing.position.set(-0.8, 0.8, -0.1);
+        leftWing.rotation.y = Math.PI / 6;
+        group.add(leftWing);
+
+        const rightWing = new THREE.Mesh(wingGeo, wingMat);
+        rightWing.position.set(0.8, 0.8, -0.1);
+        rightWing.rotation.y = -Math.PI / 6;
+        group.add(rightWing);
+    }
+
+    return group;
+}
+
+function startWave() {
+    if (waveInProgress || gameOver || gameWon) return;
+    waveInProgress = true;
+    document.getElementById('btnStart').disabled = true;
+    document.getElementById('msg').innerText = "Волна пошла!";
+    generateWaveEnemies();
+}
+
+function updateUI() {
+    document.getElementById('lblLevel').innerText = `${level}/${maxLevels}`;
+    document.getElementById('lblWave').innerText = `${wave}/${maxWaves}`;
+    document.getElementById('lblMoney').innerText = money;
+    document.getElementById('lblLives').innerText = lives;
+}
+
+// Основное обновление физики и перемещений
+function updateGameLogic() {
+    if (gameOver || gameWon || !waveInProgress) return;
+
+    let allDeadOrEscaped = true;
+
+    enemies.forEach(enemy => {
+        if (enemy.spawnDelay > 0) {
+            enemy.spawnDelay--;
+            allDeadOrEscaped = false;
+            return;
+        }
+        if (enemy.hp <= 0) return;
+
+        allDeadOrEscaped = false;
+        enemy.mesh.visible = true;
+
+        // Поворот крыльев у летающих (анимация махов)
+        if (enemy.type === 'flying') {
+            enemy.mesh.children[3].rotation.z = Math.sin(Date.now() * 0.02) * 0.3;
+            enemy.mesh.children[4].rotation.z = -Math.sin(Date.now() * 0.02) * 0.3;
+        }
+
+        let targetNode = path[enemy.pathIndex + 1];
+        if (targetNode) {
+            let tx = targetNode.x * cellSize + cellSize/2;
+            let tz = targetNode.y * cellSize + cellSize/2;
+
+            let dx = tx - enemy.x;
+            let dz = tz - enemy.z;
+            let dist = Math.sqrt(dx*dx + dz*dz);
+
+            if (dist <= enemy.speed) {
+                enemy.x = tx;
+                enemy.z = tz;
+                enemy.pathIndex++;
+            } else {
+                enemy.x += (dx / dist) * enemy.speed;
+                enemy.z += (dz / dist) * enemy.speed;
+                // Поворачиваем зомби в сторону движения
+                enemy.mesh.rotation.y = Math.atan2(dx, dz);
+            }
+            enemy.mesh.position.x = enemy.x;
+            enemy.mesh.position.z = enemy.z;
+        } else {
+            // Зомби дошел до пещеры
+            lives--;
+            enemy.hp = 0;
+            scene.remove(enemy.mesh);
+            updateUI();
+            if (lives <= 0) {
+                gameOver = true;
+                document.getElementById('msg').innerText = "ИГРА ОКОНЧЕНА!";
+            }
+        }
+    });
+
+    // Логика башен (Поиск целей)
+    towers.forEach(tower => {
+        if (tower.cooldown > 0) tower.cooldown--;
+
+        if (tower.cooldown === 0) {
+            let target = null;
+            let minDist = tower.type.range;
+
+            enemies.forEach(enemy => {
+                if (enemy.spawnDelay > 0 || enemy.hp <= 0) return;
+                if (!tower.type.targets.includes(enemy.type)) return;
+
+                let dx = enemy.mesh.position.x - tower.x;
+                let dz = enemy.mesh.position.z - tower.z;
+                let dist = Math.sqrt(dx*dx + dz*dz);
+
+                if (dist < minDist) {
+                    minDist = dist;
+                    target = enemy;
+                }
+            });
+
+            if (target) {
+                // Поворот пушки к цели
+                let angle = Math.atan2(target.mesh.position.x - tower.x, target.mesh.position.z - tower.z);
+                tower.group.rotation.y = angle;
+
+                // Создаем 3D Снаряд (светящаяся сфера)
+                const projGeo = new THREE.SphereGeometry(0.15, 8, 8);
+                const projMat = new THREE.MeshBasicMaterial({ color: 0xffea00 });
+                const projMesh = new THREE.Mesh(projGeo, projMat);
+                projMesh.position.set(tower.x, tower.type.name === 'Зенитка' ? 1.8 : 1.5, tower.z);
+                scene.add(projMesh);
+
+                projectiles.push({
+                    mesh: projMesh,
+                    target: target,
+                    damage: tower.type.damage,
+                    speed: 0.4
+                });
+
+                tower.cooldown = tower.type.fireRate;
+            }
+        }
+    });
+
+    // Движение снарядов в 3D
+    for (let i = projectiles.length - 1; i >= 0; i--) {
+        let p = projectiles[i];
+        if (p.target.hp <= 0) {
+            scene.remove(p.mesh);
+            projectiles.splice(i, 1);
+            continue;
+        }
+
+        let targetPos = p.target.mesh.position.clone();
+        // Корректируем высоту попадания в грудь
+        targetPos.y += 0.5;
+
+        let pPos = p.mesh.position;
+        let dir = new THREE.Vector3().subVectors(targetPos, pPos);
+        let dist = dir.length();
+
+        if (dist <= p.speed) {
+            // Попадание
+            p.target.hp -= p.damage;
+            scene.remove(p.mesh);
+
+            if (p.target.hp <= 0) {
+                money += p.target.reward;
+                scene.remove(p.target.mesh);
+                updateUI();
+            }
+            projectiles.splice(i, 1);
+        } else {
+            dir.normalize();
+            p.mesh.position.addScaledVector(dir, p.speed);
+        }
+    }
+
+    // Проверка завершения волны
+    if (allDeadOrEscaped) {
+        waveInProgress = false;
+        document.getElementById('btnStart').disabled = false;
+
+        if (wave < maxWaves) {
+            wave++;
+            document.getElementById('msg').innerText = `Раунд ${wave-1} пройден!`;
+        } else {
+            if (level < maxLevels) {
+                level++;
+                wave = 1;
+                document.getElementById('msg').innerText = `Загрузка Уровня ${level}...`;
+                generateMap();
+            } else {
+                gameWon = true;
+                document.getElementById('msg').innerText = "ВЫ ПОБЕДИЛИ В ИГРЕ!";
+            }
+        }
+        updateUI();
+    }
+}
+
+// Основной игровой цикл рендеринга
+function animate() {
+    requestAnimationFrame(animate);
+    updateGameLogic();
+    renderer.render(scene, camera);
+}
+</script>
+</body>
+</html>
