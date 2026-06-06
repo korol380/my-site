@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Поезд в Источник: Финальная Битва</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #0b0b0e;
+            color: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+            user-select: none;
+        }
+        h1 {
+            margin: 5px 0;
+            font-size: 22px;
+            color: #ff9900;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px rgba(255,153,0,0.5);
+        }
+        #gameCanvas {
+            border: 4px solid #2a2a35;
+            background-color: #000;
+            box-shadow: 0 0 30px rgba(0,0,0,0.9);
+            cursor: crosshair;
+            border-radius: 4px;
+        }
+        .controls-hint {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #8a8a9e;
+            text-align: center;
+            background: #16161f;
+            padding: 8px 20px;
+            border-radius: 20px;
+            border: 1px solid #2a2a35;
+        }
+        b {
+            color: #ff9900;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Поезд в Источник: Финал близко</h1>
+    <canvas id="gameCanvas" width="1000" height="650"></canvas>
+    <div class="controls-hint">
+        <b>W</b> — Вперед | <b>S</b> — Тормоз | <b>E (или У)</b> — Обыск / Обучение | <b>2</b> — Сжечь дерево (+1%) | <b>3</b> — Сжечь уголь (+10%) | <b>ЛКМ</b> — Стрелять
+    </div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+// --- НАСТРОЙКИ ---
+const TARGET_DISTANCE = 10000; // Изменено на 10 000 метров
+const TRAIN_SPEED = 5;          
+const CYCLE_TIME = 300000;      // 5 минут
+
+let gameState = {
+    distanceTraveled: 0,
+    fuel: 100,
+    engineOn: false,
+    
+    inventory: {
+        revolver: 0, 
+        ammo: 0,
+        wood: 0,
+        coal: 0
+    },
+    
+    currentTime: 0,
+    isNight: false,
+    lastCycleToggle: 0,
+    
+    tutorialStage: 0,
+    tutorialText: [
+        "Добро пожаловать в кабину. Ваша цель — проехать 10 000 м. Нажмите E, чтобы продолжить.",
+        "Нажмите W, чтобы включить рычаг поезда и поехать. Нажмите S, чтобы выключить.",
+        "Поезд тратит топливо. Заправляйте его деревом (клавиша 2) и углем (клавиша 3).",
+        "Каждые 5 минут наступает ночь и нападают зомби. Готовьте револьвер! Нажмите E для старта."
+    ],
+    
+    houses: [],
+    zombies: [],
+    playerHp: 100,
+    gameOver: false,
+    victory: false,
+    zombiesSpawnedThisNight: false,
+
+    // Финальный Босс (Источник вируса)
+    bossFightActive: false,
+    bossHp: 30, // На 30 выстрелов из револьвера
+
+    notificationText: "",
+    notificationTimer: 0
+};
+
+// Первый дом для обучения
+spawnHouse(150);
+
+function spawnHouse(offset = 0) {
+    const side = Math.random() < 0.5 ? -1 : 1;
+    const houseDist = gameState.distanceTraveled + Math.floor(Math.random() * 400) + 350 + offset;
+    // Не спавнить дома у самого финиша
+    if (houseDist < TARGET_DISTANCE - 100) {
+        gameState.houses.push({
+            distance: houseDist,
+            side: side,
+            searched: false
+        });
+    }
+}
+
+function showNotification(text) {
+    gameState.notificationText = text;
+    gameState.notificationTimer = 2000; 
+}
+
+function lootHouse() {
+    let roll = Math.random();
+    
+    if (roll < 0.20) {
+        if (gameState.inventory.revolver === 0) {
+            gameState.inventory.revolver = 1;
+            gameState.inventory.ammo += 8;
+            showNotification("Найдено: Револьвер и 8 патронов!");
+        } else {
+            gameState.inventory.ammo += 8;
+            showNotification("Найдено: 8 патронов (Оружие уже есть)");
+        }
+    } else if (roll < 0.70) {
+        let woodCount = Math.floor(Math.random() * 5) + 1;
+        gameState.inventory.wood += woodCount;
+        showNotification(`Найдено: Дерево x${woodCount}`);
+    } else {
+        gameState.inventory.coal += 2;
+        showNotification("Найдено: Уголь x2");
+    }
+}
+
+function spawnZombies() {
+    // Если босс-файт, зомби прут бесконечно волнами по 5-8 штук
+    let count = gameState.bossFightActive ? Math.floor(Math.random() * 4) + 5 : Math.floor(Math.random() * 15) + 1;
+    
+    for(let i=0; i<count; i++) {
+        gameState.zombies.push({
+            x: Math.floor(Math.random() * 600) + 200,
+            y: 160, 
+            speed: Math.random() * 1.0 + 0.6 + (gameState.bossFightActive ? 0.3 : 0),
+            hp: 1
+        });
+    }
+    gameState.zombiesSpawnedThisNight = true;
+}
+
+// --- ОБРАБОТКА ВВОДА ---
+window.addEventListener('keydown', (e) => {
+    if (gameState.gameOver || gameState.victory) return;
+
+    const key = e.key.toLowerCase();
+    
+    if ((key === 'w' || key === 'ц') && gameState.fuel > 0 && gameState.tutorialStage !== 0 && !gameState.bossFightActive) {
+        gameState.engineOn = true;
+        if (gameState.tutorialStage === 1) gameState.tutorialStage = 2;
+    }
+    if (key === 's' || key === 'ы') {
+        gameState.engineOn = false;
+    }
+    
+    if (key === 'e' || key === 'у') {
+        if (gameState.tutorialStage < 4) {
+            if ([0, 2, 3].includes(gameState.tutorialStage)) {
+                gameState.tutorialStage++;
+            }
+        } else {
+            let houseInRange = null;
+            gameState.houses.forEach(house => {
+                if (Math.abs(house.distance - gameState.distanceTraveled) <= 15) {
+                    houseInRange = house;
+                }
+            });
+
+            if (houseInRange) {
+                if (!houseInRange.searched) {
+                    lootHouse();
+                    houseInRange.searched = true;
+                } else {
+                    showNotification("Этот дом уже пуст!");
+                }
+            } else {
+                if (!gameState.bossFightActive) {
+                    showNotification("Вы слишком далеко от дома!");
+                }
+            }
+        }
+    }
+    
+    // Использование дерева (+1% топлива)
+    if (key === '2') {
+        if (gameState.inventory.wood > 0) {
+            if (gameState.fuel >= 100) {
+                showNotification("Бак уже полон!");
+            } else {
+                gameState.inventory.wood--;
+                gameState.fuel = Math.min(100, gameState.fuel + 1);
+                showNotification("Сожжено дерево (+1% топлива)");
+            }
+        } else {
+            showNotification("Нет дерева в инвентаре!");
+        }
+    }
+
+    // Использование угля (+10% топлива)
+    if (key === '3') {
+        if (gameState.inventory.coal > 0) {
+            if (gameState.fuel >= 100) {
+                showNotification("Бак уже полон!");
+            } else {
+                gameState.inventory.coal--;
+                gameState.fuel = Math.min(100, gameState.fuel + 10);
+                showNotification("Сожжен уголь (+10% топлива)");
+            }
+        } else {
+            showNotification("Нет угля в инвентаре!");
+        }
+    }
+});
+
+canvas.addEventListener('mousedown', (e) => {
+    if (gameState.gameOver || gameState.victory || gameState.tutorialStage < 4) return;
+    
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+    
+    if (mouseY < 430) {
+        if (gameState.inventory.revolver > 0 && gameState.inventory.ammo > 0) {
+            gameState.inventory.ammo--;
+            let hitSomething = false;
+            
+            // 1. Проверка попадания в Босса (если доехали)
+            if (gameState.bossFightActive) {
+                // Координаты био-ядра на экране (центр 500, 240, радиус примерно 60)
+                let distToBoss = Math.sqrt(Math.pow(mouseX - 500, 2) + Math.pow(mouseY - 240, 2));
+                if (distToBoss <= 65) {
+                    gameState.bossHp--;
+                    hitSomething = true;
+                    showNotification(`Попадание по Источнику! HP: ${gameState.bossHp}/30`);
+                    if (gameState.bossHp <= 0) {
+                        gameState.victory = true;
+                    }
+                }
+            }
+            
+            // 2. Проверка попадания в зомби (если не попали в босса)
+            if (!hitSomething) {
+                gameState.zombies.forEach(zombie => {
+                    let zScale = (zombie.y - 160) / 270;
+                    let zW = 35 * zScale;
+                    let zH = 75 * zScale;
+                    
+                    if (mouseX >= zombie.x - zW/2 && mouseX <= zombie.x + zW/2 &&
+                        mouseY >= zombie.y - zH && mouseY <= zombie.y) {
+                        zombie.hp--;
+                        hitSomething = true;
+                    }
+                });
+            }
+            
+            // Вспышка выстрела
+            ctx.fillStyle = "rgba(255, 220, 120, 0.4)";
+            ctx.fillRect(30, 15, canvas.width - 60, 415);
+        } else if (gameState.inventory.revolver > 0 && gameState.inventory.ammo <= 0) {
+            showNotification("Нет патронов!");
+        } else {
+            showNotification("У вас нет оружия!");
+        }
+    }
+});
+
+// --- ОБНОВЛЕНИЕ ---
+let lastTime = performance.now();
+
+function gameLoop(now) {
+    let dt = now - lastTime;
+    lastTime = now;
+    
+    if (!gameState.gameOver && !gameState.victory) {
+        updateGame(dt);
+    }
+    
+    renderGame();
+    requestAnimationFrame(gameLoop);
+}
+
+function updateGame(dt) {
+    gameState.currentTime += dt;
+    
+    if (gameState.notificationTimer > 0) {
+        gameState.notificationTimer -= dt;
+        if (gameState.notificationTimer <= 0) gameState.notificationText = "";
+    }
+    
+    // День / Ночь
+    let progress = gameState.currentTime - gameState.lastCycleToggle;
+    if (progress >= CYCLE_TIME && !gameState.bossFightActive) {
+        gameState.isNight = !gameState.isNight;
+        gameState.lastCycleToggle = gameState.currentTime;
+        if (gameState.isNight) gameState.zombiesSpawnedThisNight = false;
+    }
+    
+    if (gameState.isNight && !gameState.zombiesSpawnedThisNight && gameState.tutorialStage >= 4) {
+        spawnZombies();
+    }
+    
+    // Поведение поезда
+    if (gameState.engineOn && gameState.fuel > 0 && !gameState.bossFightActive) {
+        if (gameState.tutorialStage < 4 && gameState.tutorialStage !== 2) {
+            // Обучение
+        } else {
+            let metersPerFrame = TRAIN_SPEED * (dt / 1000);
+            gameState.distanceTraveled += metersPerFrame;
+            gameState.fuel -= 0.02 * (dt / 1000); 
+            
+            if (gameState.fuel <= 0) {
+                gameState.fuel = 0;
+                gameState.engineOn = false;
+                showNotification("Топливо иссякло!");
+            }
+            
+            if (gameState.distanceTraveled > gameState.houses.length * 450) {
+                spawnHouse();
+            }
+            
+            // Достижение Источника вируса
+            if (gameState.distanceTraveled >= TARGET_DISTANCE) {
+                gameState.distanceTraveled = TARGET_DISTANCE;
+                gameState.engineOn = false;
+                gameState.bossFightActive = true;
+                gameState.isNight = true; // Финал всегда происходит во мраке
+                showNotification("ВНИМАНИЕ: ОБНАРУЖЕН ИСТОЧНИК ВИРУСА! УНИЧТОЖЬТЕ ЕГО!");
+            }
+        }
+    }
+    
+    // Если битва с боссом, зомби спавнятся постоянно раз в 6 секунд
+    if (gameState.bossFightActive && gameState.zombies.length < 10) {
+        if (Math.random() < 0.015) { // Шанс спавна каждый кадр
+            spawnZombies();
+        }
+    }
+    
+    // Движение зомби
+    if (gameState.isNight && gameState.tutorialStage >= 4) {
+        gameState.zombies.forEach(zombie => {
+            zombie.y += zombie.speed * (dt / 16.66);
+            zombie.x += Math.sin(zombie.y / 20) * 0.4;
+            
+            if (zombie.y >= 430) {
+                gameState.playerHp -= 0.25 * (dt / 16.66); 
+                if (gameState.playerHp <= 0) {
+                    gameState.playerHp = 0;
+                    gameState.gameOver = true;
+                }
+            }
+        });
+        gameState.zombies = gameState.zombies.filter(z => z.hp > 0);
+    }
+}
+
+// --- ОТРИСОВКА ---
+function renderGame() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // 1. НЕБО
+    let skyGrad = ctx.createLinearGradient(0, 0, 0, 160);
+    if (gameState.isNight) {
+        skyGrad.addColorStop(0, '#050510');
+        skyGrad.addColorStop(1, '#111126');
+    } else {
+        skyGrad.addColorStop(0, '#4a80cc');
+        skyGrad.addColorStop(1, '#87CEEB');
+    }
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, canvas.width, 160);
+    
+    // Светило
+    ctx.fillStyle = gameState.isNight ? "#e1e4f5" : "#fff066";
+    ctx.beginPath(); ctx.arc(820, 60, 25, 0, Math.PI * 2); ctx.fill();
+
+    // Горы
+    ctx.fillStyle = gameState.isNight ? "#090914" : "#3b659c";
+    ctx.beginPath();
+    ctx.moveTo(0, 160); ctx.lineTo(150, 100); ctx.lineTo(350, 160);
+    ctx.lineTo(600, 90); ctx.lineTo(850, 160); ctx.lineTo(1000, 110);
+    ctx.lineTo(1000, 160); ctx.closePath(); ctx.fill();
+
+    // 2. ЗЕМЛЯ И РЕЛЬСЫ
+    ctx.fillStyle = gameState.isNight ? "#0f260f" : "#1e6b1e";
+    ctx.fillRect(0, 160, canvas.width, 270);
+    
+    ctx.fillStyle = gameState.isNight ? "#1f1f24" : "#44444a";
+    ctx.beginPath();
+    ctx.moveTo(480, 160); ctx.lineTo(520, 160);
+    ctx.lineTo(750, 430); ctx.lineTo(250, 430);
+    ctx.closePath(); ctx.fill();
+
+    // Шпалы
+    ctx.fillStyle = gameState.isNight ? "#120a05" : "#3d2314";
+    for(let y = 165; y < 430; y += (y-140)*0.18) {
+        let currentScale = (y - 160) / 270;
+        let w = 40 + (460 * currentScale);
+        let h = 2 + (10 * currentScale);
+        ctx.fillRect(500 - w/2, y, w, h);
+    }
+
+    // Рельсы
+    ctx.strokeStyle = gameState.isNight ? "#555" : "#999";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(495, 160); ctx.lineTo(330, 430);
+    ctx.moveTo(505, 160); ctx.lineTo(670, 430);
+    ctx.stroke();
+
+    // Фонарь поезда
+    let headlight = ctx.createLinearGradient(500, 160, 500, 430);
+    headlight.addColorStop(0, 'rgba(255,255,200,0)');
+    headlight.addColorStop(1, 'rgba(255,255,150,0.2)');
+    ctx.fillStyle = headlight;
+    ctx.beginPath();
+    ctx.moveTo(495, 160); ctx.lineTo(505, 160);
+    ctx.lineTo(800, 430); ctx.lineTo(200, 430);
+    ctx.closePath(); ctx.fill();
+
+    // 3. ДОМИКИ ОБЫЧНЫЕ
+    if (!gameState.bossFightActive) {
+        gameState.houses.forEach(house => {
+            let relDist = house.distance - gameState.distanceTraveled;
+            if (relDist > 0 && relDist < 500) {
+                let scale = 1.0 - (relDist / 500); 
+                let hWidth = 140 * scale; let hHeight = 110 * scale;
+                if (hWidth > 0 && hHeight > 0) {
+                    let xPos = 500 + (house.side * (160 + (500 - relDist) * 0.6)) - hWidth / 2;
+                    let yPos = 160 + ((500 - relDist) * 0.54) - hHeight;
+                    
+                    ctx.fillStyle = house.searched ? "#2d221c" : "#6e3f23";
+                    ctx.fillRect(xPos, yPos, hWidth, hHeight);
+                    
+                    ctx.fillStyle = "#1c120c"; ctx.fillRect(xPos + hWidth*0.2, yPos + hHeight*0.4, hWidth*0.25, hHeight*0.6);
+                    ctx.fillStyle = (gameState.isNight && !house.searched) ? "#ffcc00" : "#222";
+                    ctx.fillRect(xPos + hWidth*0.6, yPos + hHeight*0.3, hWidth*0.25, hHeight*0.3);
+
+                    ctx.fillStyle = house.searched ? "#401d1d" : "#942323";
+                    ctx.beginPath(); ctx.moveTo(xPos - 10*scale, yPos); ctx.lineTo(xPos + hWidth / 2, yPos - (40 * scale)); ctx.lineTo(xPos + hWidth + 10*scale, yPos); ctx.closePath(); ctx.fill();
+                }
+            }
+        });
+    }
+
+    // 4. ФИНАЛЬНЫЙ БОСС: ИСТОЧНИК ВИРУСА
+    if (gameState.bossFightActive) {
+        // Огромный, пульсирующий био-организм прямо на путях
+        let pulse = Math.sin(gameState.currentTime / 150) * 5;
+        let radius = 60 + pulse;
+        
+        // Отресовка щупалец / корней вируса
+        ctx.strokeStyle = "#4a1224"; ctx.lineWidth = 8;
+        ctx.beginPath();
+        ctx.moveTo(500, 240); ctx.quadraticCurveTo(400, 280, 320, 350);
+        ctx.moveTo(500, 240); ctx.quadraticCurveTo(600, 280, 680, 350);
+        ctx.moveTo(500, 240); ctx.lineTo(500, 400);
+        ctx.stroke();
+
+        // Главное ядро
+        let bossGrad = ctx.createRadialGradient(500, 240, 5, 500, 240, radius);
+        bossGrad.addColorStop(0, '#ff2266');
+        bossGrad.addColorStop(0.5, '#800020');
+        bossGrad.addColorStop(1, '#3a0010');
+        
+        ctx.fillStyle = bossGrad;
+        ctx.beginPath();
+        ctx.arc(500, 240, radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Текстура порчи на ядре
+        ctx.fillStyle = "rgba(0,0,0,0.3)";
+        ctx.beginPath(); ctx.arc(485, 220, 12, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(520, 255, 16, 0, Math.PI*2); ctx.fill();
+
+        // Полоска здоровья Босса
+        ctx.fillStyle = "#222"; ctx.fillRect(350, 100, 300, 15);
+        let bossHealthWidth = 300 * (gameState.bossHp / 30);
+        ctx.fillStyle = "#ff0055"; ctx.fillRect(350, 100, bossHealthWidth, 15);
+        ctx.strokeStyle = "#fff"; ctx.strokeRect(350, 100, 300, 15);
+        
+        ctx.fillStyle = "#fff"; ctx.font = "bold 12px Arial";
+        ctx.fillText("ИСТОЧНИК ЗАРАЖЕНИЯ (СТРЕЙЛЯТЕ СЮДА!)", 385, 93);
+    }
+    
+    // 5. ОТРЕСОВКА ЗОМБИ
+    if (gameState.isNight) {
+        gameState.zombies.forEach(zombie => {
+            let zScale = (zombie.y - 160) / 270;
+            if (zScale > 0) {
+                let zW = 30 * zScale; let zH = 70 * zScale;
+                ctx.fillStyle = "#2e4a2e"; ctx.fillRect(zombie.x - zW/2, zombie.y - zH, zW, zH*0.75);
+                ctx.fillStyle = "#1e331e"; ctx.beginPath(); ctx.arc(zombie.x, zombie.y - zH + 5*zScale, 10*zScale, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = "#ff0000"; ctx.fillRect(zombie.x - 3*zScale, zombie.y - zH + 3*zScale, 2*zScale, 2*zScale); ctx.fillRect(zombie.x + 1*zScale, zombie.y - zH + 3*zScale, 2*zScale, 2*zScale);
+            }
+        });
+    }
+    
+    // 6. ИНТЕРЬЕР КАБИНЫ ПОЕЗДА
+    ctx.fillStyle = "#1a1a24"; ctx.fillRect(0, 430, canvas.width, 220);
+    ctx.fillStyle = "#2d2d3d"; ctx.fillRect(0, 415, canvas.width, 15); 
+    ctx.fillRect(0, 0, 30, 430); ctx.fillRect(canvas.width - 30, 0, 30, 430); 
+    
+    ctx.fillStyle = "#4f4f64";
+    for(let i = 50; i < canvas.width; i += 100) {
+        ctx.beginPath(); ctx.arc(i, 422, 3, 0, Math.PI*2); ctx.fill();
+    }
+
+    // Рычаг скорости
+    ctx.fillStyle = "#09090d"; ctx.fillRect(95, 475, 30, 110);
+    ctx.strokeStyle = "#3a3a4a"; ctx.strokeRect(95, 475, 30, 110);
+    let leverY = gameState.engineOn ? 480 : 550;
+    ctx.strokeStyle = "#888"; ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.moveTo(110, 530); ctx.lineTo(110, leverY + 10); ctx.stroke();
+    let leverGrad = ctx.createRadialGradient(110, leverY+10, 2, 110, leverY+10, 15);
+    leverGrad.addColorStop(0, '#ff4444'); leverGrad.addColorStop(1, '#990000');
+    ctx.fillStyle = leverGrad; ctx.beginPath(); ctx.arc(110, leverY + 10, 14, 0, Math.PI * 2); ctx.fill();
+    
+    ctx.fillStyle = "#8a8a9e"; ctx.font = "bold 12px Arial";
+    ctx.fillText("ВКЛ [W]", 135, 495); ctx.fillText("ВЫКЛ [S]", 135, 565);
+    
+    // Шкала топлива
+    ctx.fillStyle = "#09090d"; ctx.fillRect(250, 490, 220, 25);
+    let fuelWidth = 220 * (gameState.fuel / 100);
+    let fuelGrad = ctx.createLinearGradient(250, 0, 470, 0);
+    if(gameState.fuel > 30) { fuelGrad.addColorStop(0, '#1e6b1e'); fuelGrad.addColorStop(1, '#32cd32'); } 
+    else { fuelGrad.addColorStop(0, '#801010'); fuelGrad.addColorStop(1, '#ff3333'); }
+    ctx.fillStyle = fuelGrad; ctx.fillRect(250, 490, fuelWidth, 25);
+    ctx.strokeStyle = "#444"; ctx.strokeRect(250, 490, 220, 25);
+    
+    ctx.fillStyle = "#ffffff"; ctx.font = "13px Arial";
+    ctx.fillText(`ТОПЛИВО: ${Math.floor(gameState.fuel)}%`, 255, 507);
+    
+    // Приборы
+    ctx.fillStyle = "#ffaa00"; ctx.font = "bold 20px monospace";
+    ctx.fillText(`МЕТРЫ: ${Math.floor(gameState.distanceTraveled)} / ${TARGET_DISTANCE} м`, 250, 555);
+    
+    ctx.fillStyle = "#ffffff"; ctx.font = "15px Arial";
+    ctx.fillText(`Текущая скорость: ${gameState.engineOn ? TRAIN_SPEED : 0} м/с`, 250, 585);
+    
+    ctx.fillStyle = "#ff4444"; ctx.font = "bold 16px Arial";
+    ctx.fillText(`ЗАЩИТА КАБИНЫ (HP): ${Math.floor(gameState.playerHp)}%`, 250, 615);
+
+    // 7. МИНИ-ИНВЕНТАРЬ
+    ctx.fillStyle = "#09090d"; ctx.fillRect(700, 460, 260, 150);
+    ctx.strokeStyle = "#3a3a4a"; ctx.strokeRect(700, 460, 260, 150);
+    
+    ctx.fillStyle = "#ffaa00"; ctx.font = "bold 14px Arial";
+    ctx.fillText("БОРТОВОЙ ОТСЕК (ИНВЕНТАРЬ):", 715, 485);
+    
+    ctx.fillStyle = "#fff"; ctx.font = "14px Arial";
+    let revStatus = gameState.inventory.revolver > 0 ? `ЭКИПИРОВАН (${gameState.inventory.ammo} патр.)` : "НЕ НАЙДЕН";
+    ctx.fillText(`🔫 Револьвер: ${revStatus}`, 715, 515);
+    
+    ctx.fillStyle = gameState.inventory.wood > 0 ? "#55ff55" : "#fff";
+    ctx.fillText(`🪵 Дерево [Жми 2]: ${gameState.inventory.wood} шт.`, 715, 545);
+    
+    ctx.fillStyle = gameState.inventory.coal > 0 ? "#55ff55" : "#fff";
+    ctx.fillText(`🪨 Уголь [Жми 3]: ${gameState.inventory.coal} шт.`, 715, 575);
+
+    // 8. СУТОЧНЫЙ ТАЙМЕР
+    if (!gameState.bossFightActive) {
+        let progress = gameState.currentTime - gameState.lastCycleToggle;
+        let timeLeft = Math.max(0, Math.floor((CYCLE_TIME - progress) / 1000));
+        ctx.fillStyle = "rgba(0, 0, 0, 0.6)"; ctx.fillRect(300, 15, 400, 35);
+        ctx.fillStyle = gameState.isNight ? "#ff4444" : "#55ff55"; ctx.font = "bold 14px Arial";
+        let statusText = gameState.isNight ? "РЕЖИМ: НОЧЬ (ОБОРОНА)" : "РЕЖИМ: ДЕНЬ (ДВИЖЕНИЕ)";
+        ctx.fillText(`${statusText} | Смена через: ${timeLeft} с.`, 320, 37);
+    }
+
+    // УВЕДОМЛЕНИЯ О РАССТОЯНИИ / СБОРЕ ЛУТА
+    if (gameState.notificationText !== "") {
+        ctx.fillStyle = "rgba(20, 0, 0, 0.9)"; ctx.fillRect(250, 200, 500, 50);
+        ctx.strokeStyle = "#ff4444"; ctx.strokeRect(250, 200, 500, 50);
+        ctx.fillStyle = "#ffffff"; ctx.font = "bold 16px Arial"; ctx.textAlign = "center";
+        ctx.fillText(gameState.notificationText, 500, 231); ctx.textAlign = "left";
+    }
+
+    if (gameState.tutorialStage >= 4 && gameState.notificationText === "" && !gameState.bossFightActive) {
+        gameState.houses.forEach(house => {
+            if (Math.abs(house.distance - gameState.distanceTraveled) <= 15) {
+                ctx.fillStyle = "#ffff00"; ctx.font = "bold 20px Arial"; ctx.textAlign = "center";
+                if (!house.searched) ctx.fillText("⚡ ПОЕЗД ОСТАНОВЛЕН. НАЖМИТЕ [E] ДЛЯ ОБЫСКА! ⚡", 500, 290);
+                ctx.textAlign = "left";
+            }
+        });
+    }
+
+    // ОБУЧЕНИЕ
+    if (gameState.tutorialStage < 4) {
+        ctx.fillStyle = "rgba(11, 11, 20, 0.95)"; ctx.fillRect(150, 240, 700, 110);
+        ctx.strokeStyle = "#ffaa00"; ctx.strokeRect(150, 240, 700, 110);
+        ctx.fillStyle = "#ffffaa"; ctx.font = "16px Arial"; ctx.fillText("СИСТЕМА СВЯЗИ МАШИНИСТА:", 180, 270);
+        ctx.fillStyle = "#ffffff"; ctx.fillText(gameState.tutorialText[gameState.tutorialStage], 180, 305);
+    }
+
+    // ЭКРАНЫ ФИНАЛА
+    if (gameState.gameOver || gameState.victory) {
+        ctx.fillStyle = "rgba(5, 5, 10, 0.95)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.textAlign = "center";
+        if (gameState.victory) {
+            ctx.fillStyle = "#32cd32"; ctx.font = "bold 28px Arial"; ctx.fillText("ИСТОЧНИК УНИЧТОЖЕН! ВИРУС БОЛЬШЕ НЕ РАСПРОСТРАНЯЕТСЯ!", 500, 300);
+            ctx.fillStyle = "#ffffff"; ctx.font = "20px Arial"; ctx.fillText("Вы успешно расстреляли био-ядро. Человечество спасено! Победа.", 500, 350);
+        } else {
+            ctx.fillStyle = "#ff3333"; ctx.font = "bold 32px Arial"; ctx.fillText("КАБИНА ЗАХВАЧЕНА. ИГРА ОКОНЧЕНА", 500, 300);
+            ctx.fillStyle = "#aaaaaa"; ctx.font = "18px Arial"; ctx.fillText(`Вы погибли в финале. Здоровье био-ядра оставалось: ${gameState.bossHp}/30`, 500, 360);
+        }
+        ctx.textAlign = "left";
+    }
+}
+
+requestAnimationFrame(gameLoop);
+</script>
+</body>
+</html>
