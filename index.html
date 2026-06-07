@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GAME WORLD - Vibe Coding</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', sans-serif; background: #121212; color: #fff; line-height: 1.6; }
+        
+        /* Заглушка выбора устройства */
+        #device-overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); backdrop-filter: blur(10px); z-index:1000; display:flex; flex-direction:column; justify-content:center; align-items:center; }
+        
+        header { background: #1f1f1f; padding: 2rem; text-align: center; border-bottom: 3px solid #ff4757; }
+        .container { max-width: 1000px; margin: 40px auto; padding: 0 20px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 30px; }
+        .card { background: #1f1f1f; border-radius: 12px; overflow: hidden; padding: 15px; text-align: center; transition: 0.3s; }
+        .card img { width: 100%; height: 150px; object-fit: cover; border-radius: 8px; }
+        .btn { display: inline-block; padding: 10px 20px; background: #ff4757; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; margin-top: 10px; }
+        
+        #vibe-block { max-width: 800px; margin: 40px auto; padding: 20px; background: #2a2a2a; border-radius: 12px; border-left: 5px solid #ff4757; text-align: center;}
+    </style>
+</head>
+<body>
+
+<div id="device-overlay">
+    <h1>С чего вы заходите?</h1>
+    <div style="display:flex; gap:50px; margin: 40px;">
+        <div onclick="selectDevice('mobile')" style="cursor:pointer; text-align:center;">
+            <div style="font-size: 60px;">📱</div><p>Телефон</p>
+        </div>
+        <div onclick="selectDevice('desktop')" style="cursor:pointer; text-align:center;">
+            <div style="font-size: 60px;">💻</div><p>Компьютер</p>
+        </div>
+    </div>
+    <p style="color:#aaa; font-size:14px;">Некоторые игры не адаптированы для сенсорных экранов.</p>
+</div>
+
+<header>
+    <h1>GAME WORLD</h1>
+</header>
+
+<section id="vibe-block">
+    <h2>Vibe Coding Project</h2>
+    <p>Я начинающий разработчик, создаю игры в стиле "vibe coding".</p>
+    <p><strong>Мой челлендж:</strong> добавляю по 1-2 новые игры каждый день!</p>
+</section>
+
+<div class="container">
+    <div class="grid">
+        <div class="card">
+            <img src="images/aim.png" alt="AIM">
+            <h3>AIM Master</h3>
+            <a href="aim.html" class="btn">Играть</a>
+        </div>
+        <div class="card" id="tower-game">
+            <img src="images/tower.png" alt="Tower">
+            <h3>Tower Game</h3>
+            <a href="#" class="btn">Играть</a>
+        </div>
+        <div class="card" id="zombie-game">
+            <img src="images/zombie.png" alt="Zombie">
+            <h3>Zombie Defence</h3>
+            <a href="#" class="btn">Играть</a>
+        </div>
+        <div class="card">
+            <img src="images/cute_jump.png" alt="Jump">
+            <h3>Cute Jump</h3>
+            <a href="#" class="btn">Играть</a>
+        </div>
+    </div>
+</div>
+
+<script>
+    function selectDevice(device) {
+        document.getElementById('device-overlay').style.display = 'none';
+        if (device === 'mobile') {
+            document.getElementById('tower-game').style.display = 'none';
+            document.getElementById('zombie-game').style.display = 'none';
+        }
+    }
+</script>
+
+</body>
+</html>
