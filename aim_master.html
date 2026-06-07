@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>AIM Master</title>
+    <style>
+        body { display: flex; flex-direction: column; align-items: center; background: #222; color: white; font-family: sans-serif; }
+        canvas { background: #333; cursor: crosshair; border: 4px solid #fff; margin-top: 20px; }
+        .controls { margin-top: 15px; }
+        button { padding: 12px 25px; font-size: 18px; cursor: pointer; border: none; border-radius: 5px; color: white; }
+    </style>
+</head>
+<body>
+    <h1>AIM Master</h1>
+    <div style="font-size: 24px;">Очки: <span id="score">0</span></div>
+    <div class="controls">
+        <button onclick="startGame()" style="background: #2ecc71;">НАЧАТЬ</button>
+        <button onclick="stopGame()" style="background: #e74c3c;">ЗАКОНЧИТЬ</button>
+    </div>
+    <canvas id="gameCanvas" width="600" height="600"></canvas>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const scoreEl = document.getElementById('score');
+    
+    let score = 0, circles = [], gameInterval = null, spawnInterval = null;
+
+    // Подключаем звуки
+    const sounds = {
+        triple: new Audio('triple.mp3'),
+        monster: new Audio('monster.mp3')
+    };
+
+    function startGame() {
+        if(gameInterval) return;
+        score = 0; scoreEl.innerText = score;
+        gameInterval = setInterval(update, 1000/60);
+        spawnInterval = setInterval(spawnCircle, 800);
+    }
+
+    function stopGame() {
+        clearInterval(gameInterval); clearInterval(spawnInterval);
+        gameInterval = null; circles = []; ctx.clearRect(0, 0, 600, 600);
+    }
+
+    function spawnCircle() {
+        const radius = 30;
+        circles.push({ 
+            x: radius + Math.random()*(canvas.width - radius*2), 
+            y: radius + Math.random()*(canvas.height - radius*2), 
+            radius, startTime: Date.now() 
+        });
+    }
+
+    canvas.addEventListener('mousedown', (e) => {
+        if(!gameInterval) return;
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+        
+        circles.forEach((c, i) => {
+            if (Math.hypot(c.x - mx, c.y - my) < c.radius) {
+                // Логика очков: чем быстрее, тем больше (от 25 до 100)
+                const timeLeft = 4000 - (Date.now() - c.startTime);
+                const points = Math.max(25, Math.floor((timeLeft / 4000) * 100));
+                
+                const oldScore = score;
+                score += points;
+                scoreEl.innerText = score;
+
+                // Звуковая логика
+                // Triple Kill каждые 3000 очков
+                if (Math.floor(score / 3000) > Math.floor(oldScore / 3000)) {
+                    sounds.triple.currentTime = 0;
+                    sounds.triple.play();
+                }
+                // Monster Kill каждые 5000 очков
+                if (Math.floor(score / 5000) > Math.floor(oldScore / 5000)) {
+                    sounds.monster.currentTime = 0;
+                    sounds.monster.play();
+                }
+                
+                circles.splice(i, 1);
+            }
+        });
+    });
+
+    function update() {
+        ctx.clearRect(0, 0, 600, 600);
+        const now = Date.now();
+        circles = circles.filter(c => now - c.startTime < 4000);
+        circles.forEach(c => {
+            ctx.beginPath(); ctx.arc(c.x, c.y, c.radius, 0, Math.PI*2);
+            ctx.fillStyle = '#ff4757'; ctx.fill();
+        });
+    }
+</script>
+</body>
+</html>
