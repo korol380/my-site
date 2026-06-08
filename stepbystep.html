@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Step by Step — Квест-Шагомер</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', sans-serif; background: #121212; color: #fff; text-align: center; display: flex; flex-direction: column; height: 100vh; }
+        
+        header { background: #1f1f1f; padding: 15px; border-bottom: 3px solid #ff4757; }
+        h1 { color: #ff4757; font-size: 24px; text-transform: uppercase; letter-spacing: 1px; }
+        
+        .stats-container { display: flex; justify-content: space-around; background: #1a1a1a; padding: 10px; font-size: 14px; color: #a4b0be; }
+        .stat-box span { display: block; font-size: 22px; font-weight: bold; color: #2ed573; }
+
+        /* Контейнер для карты и кнопки поверх неё */
+        .map-wrapper { flex-grow: 1; width: 100%; position: relative; }
+        #map { width: 100%; height: 100%; background: #222; }
+
+        /* Стильная плавающая кнопка "Найти себя" */
+        .locate-btn {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000; /* Чтобы была поверх карты */
+            background: #ff4757;
+            color: white;
+            border: none;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            font-size: 22px;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: 0.2s;
+        }
+        .locate-btn:hover { background: #ff6b81; transform: scale(1.05); }
+
+        .controls { background: #1f1f1f; padding: 15px; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+        .btn { padding: 12px 20px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 14px; transition: 0.2s; min-width: 120px; }
+        .btn-start { background: #2ed573; color: white; }
+        .btn-stop { background: #ff4757; color: white; display: none; }
+        .btn-route { background: #1e90ff; color: white; }
+        .btn:hover { opacity: 0.9; transform: translateY(-1px); }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Step by Step</h1>
+</header>
+
+<div class="stats-container">
+    <div class="stat-box">Шаги <span id="step-count">0</span></div>
+    <div class="stat-box">Дистанция <span id="distance-count">0 м</span></div>
+    <div class="stat-box">Статус <span id="status" style="color: #ffb142; font-size:14px; margin-top:5px;">Ждет старта</span></div>
+</div>
+
+<div class="map-wrapper">
+    <button class="locate-btn" onclick="locateUser()" title="Найти меня">🎯</button>
+    <div id="map"></div>
+</div>
+
+<div class="controls">
+    <button class="btn btn-start" id="start-btn" onclick="startTracking()">Старт</button>
+    <button class="btn btn-stop" id="stop-btn" onclick="stopTracking()">Стоп</button>
+    <button class="btn btn-route" onclick="generateRoute()">Путь на 10k шагов</button>
+</div>
+
+<script>
+    let map;
+    let userMarker;
+    let walkPath;
+    let routePath; 
+    let watchId = null;
+    
+    let steps = 0;
+    let totalDistance = 0; 
+    let lastPosition = null;
+    let pathCoordinates = [];
+
+    function initMap() {
+        map = L.map('map').setView([55.7558, 37.6173], 13);
+
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap &copy; CARTO'
+        }).addTo(map);
+
+        // При запуске сразу определяем, где пользователь
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(position => {
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+                map.setView([lat, lng], 16);
+                userMarker = L.marker([lat, lng]).addTo(map).bindPopup("Вы здесь").openPopup();
+                lastPosition = { lat, lng };
+            });
+        } else {
+            alert("Ваш браузер не поддерживает геопозицию.");
+        }
+
+        walkPath = L.polyline([], { color: '#2ed573', weight: 5 }).addTo(map);
+        routePath = L.polyline([], { color: '#1e90ff', weight: 4, dashArray: '5, 10' }).addTo(map);
+    }
+
+    // Функция для кнопки 🎯 (центрирование карты на пользователе)
+    function locateUser() {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(position => {
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+                
+                // Плавно перемещаем карту к пользователю на хороший масштаб (17)
+                map.flyTo([lat, lng], 17);
+                
+                if (userMarker) {
+                    userMarker.setLatLng([lat, lng]).openPopup();
+                } else {
+                    userMarker = L.marker([lat, lng]).addTo(map).bindPopup("Вы здесь").openPopup();
+                }
+                
+                // Также обновляем последнюю позицию на актуальную
+                lastPosition = { lat, lng };
+            }, error => {
+                alert("Не удалось определить координаты. Проверьте, включен ли GPS.");
+            }, { enableHighAccuracy: true });
+        } else {
+            alert("Геопозиция не поддерживается вашим устройством.");
+        }
+    }
+
+    function startTracking() {
+        if (!navigator.geolocation) return;
+
+        document.getElementById('start-btn').style.display = 'none';
+        document.getElementById('stop-btn').style.display = 'inline-block';
+        document.getElementById('status').textContent = 'В движении...';
+        document.getElementById('status').style.color = '#2ed573';
+
+        watchId = navigator.geolocation.watchPosition(position => {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+
+            if (userMarker) {
+                userMarker.setLatLng([lat, lng]);
+            } else {
+                userMarker = L.marker([lat, lng]).addTo(map);
+            }
+            
+            // Во время ходьбы тоже автоматически плавно центрируем карту
+            map.panTo([lat, lng]);
+
+            if (lastPosition) {
+                let dist = calculateDistance(lastPosition.lat, lastPosition.lng, lat, lng);
+                
+                if (dist > 2) {
+                    totalDistance += dist;
+                    steps = Math.floor(totalDistance / 0.75);
+
+                    document.getElementById('distance-count').textContent = Math.round(totalDistance) + ' м';
+                    document.getElementById('step-count').textContent = steps;
+
+                    pathCoordinates.push([lat, lng]);
+                    walkPath.setLatLngs(pathCoordinates);
+                }
+            }
+
+            lastPosition = { lat, lng };
+        }, error => {
+            console.error(error);
+        }, {
+            enableHighAccuracy: true,
+            maximumAge: 1000
+        });
+    }
+
+    function stopTracking() {
+        if (watchId !== null) {
+            navigator.geolocation.clearWatch(watchId);
+            watchId = null;
+        }
+        document.getElementById('start-btn').style.display = 'inline-block';
+        document.getElementById('stop-btn').style.display = 'none';
+        document.getElementById('status').textContent = 'Пауза';
+        document.getElementById('status').style.color = '#ffb142';
+    }
+
+    function generateRoute() {
+        if (!lastPosition) {
+            alert("Подождите, пока определится ваше местоположение.");
+            return;
+        }
+
+        const startLat = lastPosition.lat;
+        const startLng = lastPosition.lng;
+        const offset = 0.017; 
+
+        const routePoints = [
+            [startLat, startLng],
+            [startLat + offset, startLng + offset],
+            [startLat + offset, startLng - offset],
+            [startLat - offset, startLng - offset],
+            [startLat, startLng]
+        ];
+
+        routePath.setLatLngs(routePoints);
+        map.fitBounds(routePath.getBounds());
+        alert("Маршрут на 10 000 шагов построен! Следуйте по синей пунктирной линии.");
+    }
+
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+        const R = 6371000; 
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                  Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                  Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
+    }
+
+    window.onload = initMap;
+</script>
+
+</body>
+</html>
