@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Cookies — Korol's Fun</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            min-height: 100vh;
+
+            background: #080808;
+            color: #f1e7c5;
+
+            font-family: Georgia, "Times New Roman", serif;
+        }
+
+        .page {
+            width: min(900px, calc(100% - 30px));
+            margin: 0 auto;
+            padding: 55px 0 70px;
+        }
+
+        .back {
+            display: inline-block;
+
+            margin-bottom: 35px;
+            padding: 9px 16px;
+
+            color: #d4af37;
+            background: #101010;
+
+            border: 1px solid #423717;
+            border-radius: 4px;
+
+            text-decoration: none;
+
+            font-family: "Segoe UI", sans-serif;
+            font-size: 14px;
+
+            transition: 0.25s ease;
+        }
+
+        .back:hover {
+            border-color: #d4af37;
+            color: #fff0a6;
+            transform: translateY(-2px);
+        }
+
+        h1 {
+            color: #d4af37;
+            font-size: clamp(32px, 6vw, 52px);
+            letter-spacing: 2px;
+            margin-bottom: 12px;
+        }
+
+        .updated {
+            color: #756b4d;
+            font-family: "Segoe UI", sans-serif;
+            font-size: 13px;
+            margin-bottom: 35px;
+        }
+
+        .block {
+            padding: 25px;
+            margin-bottom: 18px;
+
+            background: #101010;
+
+            border: 1px solid #3c3219;
+            border-left: 3px solid #d4af37;
+            border-radius: 6px;
+
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+        }
+
+        h2 {
+            color: #d4af37;
+            font-size: 22px;
+            margin-bottom: 12px;
+        }
+
+        p,
+        li {
+            color: #c5bfa9;
+
+            font-family: "Segoe UI", sans-serif;
+            font-size: 15px;
+            line-height: 1.7;
+        }
+
+        ul {
+            padding-left: 22px;
+        }
+
+        li {
+            margin-bottom: 7px;
+        }
+
+        a {
+            color: #d4af37;
+        }
+
+        .cookie-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 12px;
+            font-family: "Segoe UI", sans-serif;
+            font-size: 14px;
+        }
+
+        .cookie-table th,
+        .cookie-table td {
+            padding: 12px;
+            text-align: left;
+            vertical-align: top;
+
+            border: 1px solid #3c3219;
+        }
+
+        .cookie-table th {
+            color: #d4af37;
+            background: #0b0b0b;
+        }
+
+        .cookie-table td {
+            color: #c5bfa9;
+        }
+
+        .footer {
+            padding-top: 25px;
+            color: #625a42;
+            font-family: "Segoe UI", sans-serif;
+            font-size: 13px;
+            text-align: center;
+        }
+
+        @media (max-width: 650px) {
+            .page {
+                padding-top: 30px;
+            }
+
+            .block {
+                padding: 20px;
+            }
+
+            .cookie-table {
+                display: block;
+                overflow-x: auto;
+            }
+        }
+    </style>
+<script type="text/javascript" nonce="0519dd861326419ab880ec51b7d" src="//local.adguard.org?ts=1790850792089&amp;type=content-script&amp;dmn=chatgpt.com&amp;url=https%3A%2F%2Fchatgpt.com%2Fbackend-api%2Festuary%2Fcontent%3Fid%3Dfile_000000006c208243a0d155c3eb53860f%26fn%3Dcookies.html%26cd%3Dattachment%26ts%3D497458%26p%3Dfs%26cid%3D1%26sig%3Dc80e3417d6a72d4ee5dc06958226556fc8e483455697fcbd0f928ac809b93cf2%26v%3D0&amp;app=chrome.exe&amp;css=2&amp;js=1&amp;rel=1&amp;rji=1&amp;sbe=1"></script><script type="text/javascript" nonce="0519dd861326419ab880ec51b7d" src="//local.adguard.org?ts=1790850792089&amp;name=AdGuard%20Extra&amp;name=AdGuard%20Popup%20Blocker&amp;type=user-script"></script></head>
+
+<body>
+
+    <main class="page">
+
+        <a href="index.html" class="back">
+            ← Вернуться в Korol's Fun
+        </a>
+
+        <h1>Cookies</h1>
+
+        <p class="updated">
+            Информация о cookies на сайте Korol's Fun
+        </p>
+
+        <section class="block">
+
+            <h2>Что такое cookies?</h2>
+
+            <p>
+                Cookies — небольшие данные, которые сайт может сохранить
+                в браузере. Они помогают запоминать настройки пользователя
+                между посещениями сайта.
+            </p>
+
+        </section>
+
+        <section class="block">
+
+            <h2>Какие cookies использует Korol's Fun?</h2>
+
+            <table class="cookie-table">
+
+                <thead>
+                    <tr>
+                        <th>Cookie</th>
+                        <th>Назначение</th>
+                        <th>Срок</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    <tr>
+                        <td>korol_cookie_consent</td>
+
+                        <td>
+                            Запоминает решение пользователя
+                            по уведомлению о cookies:
+                            «Принять» или «Отклонить».
+                        </td>
+
+                        <td>
+                            1 год
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td>korol_device</td>
+
+                        <td>
+                            Запоминает выбранное устройство:
+                            телефон или ПК.
+                        </td>
+
+                        <td>
+                            1 год
+                        </td>
+                    </tr>
+
+                </tbody>
+
+            </table>
+
+        </section>
+
+        <section class="block">
+
+            <h2>Для чего они нужны?</h2>
+
+            <p>
+                Сайт использует эти данные для сохранения локальных
+                настроек интерфейса. Они не нужны для хранения игровых
+                файлов и не являются отдельными файлами, которые нужно
+                вручную создавать на компьютере пользователя.
+            </p>
+
+        </section>
+
+        <section class="block">
+
+            <h2>Как удалить cookies?</h2>
+
+            <p>
+                Cookies можно удалить через настройки браузера.
+                После удаления сайт снова может показать запрос
+                согласия и попросить выбрать устройство.
+            </p>
+
+        </section>
+
+        <section class="block">
+
+            <h2>Изменение согласия</h2>
+
+            <p>
+                Если пользователь ранее выбрал «Принять» или
+                «Отклонить», баннер больше не показывается,
+                пока сохранён соответствующий cookie.
+                Его можно удалить в настройках браузера,
+                после чего запрос появится снова.
+            </p>
+
+        </section>
+
+        <div class="footer">
+            © 2026 Korol's Fun
+        </div>
+
+    </main>
+
+</body>
+</html>
