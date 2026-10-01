@@ -1,0 +1,1395 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Korol's Fun</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: Georgia, "Times New Roman", serif;
+            background: #080808;
+            color: #f1e7c5;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        body.game-open {
+            overflow: hidden;
+        }
+
+        /* =====================================================
+           ВЫБОР УСТРОЙСТВА
+        ===================================================== */
+
+        #device-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 2000;
+
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+
+            background: #080808;
+
+            animation: overlayAppear 0.5s ease;
+            transition: opacity 0.4s ease;
+        }
+
+        #device-overlay h1 {
+            color: #d4af37;
+            font-size: clamp(28px, 5vw, 42px);
+            letter-spacing: 2px;
+            margin-bottom: 35px;
+            text-align: center;
+        }
+
+        .device-options {
+            display: flex;
+            gap: 70px;
+        }
+
+        .device-choice {
+            width: 130px;
+            padding: 25px 15px;
+            text-align: center;
+
+            color: #c9bd96;
+            border: 1px solid #3d3319;
+            border-radius: 6px;
+            cursor: pointer;
+
+            transition:
+                transform 0.35s ease,
+                border-color 0.35s ease,
+                color 0.35s ease,
+                background 0.35s ease;
+        }
+
+        .device-choice .icon {
+            display: block;
+            font-size: 42px;
+            margin-bottom: 12px;
+        }
+
+        .device-choice p {
+            font-size: 16px;
+        }
+
+        .device-choice:hover {
+            transform: translateY(-6px);
+            color: #d4af37;
+            border-color: #d4af37;
+            background: #111111;
+            box-shadow: 0 10px 30px rgba(212, 175, 55, 0.08);
+        }
+
+        /* =====================================================
+           ШАПКА
+        ===================================================== */
+
+        header {
+            padding: 45px 20px 30px;
+            text-align: center;
+
+            background: linear-gradient(180deg, #111111, #080808);
+            border-bottom: 1px solid #806b29;
+            box-shadow: 0 8px 35px rgba(0, 0, 0, 0.7);
+        }
+
+        .logo {
+            color: #d4af37;
+            font-size: clamp(38px, 7vw, 70px);
+            letter-spacing: 5px;
+            margin-bottom: 20px;
+
+            text-shadow: 0 0 15px rgba(212, 175, 55, 0.18);
+            animation: logoAppear 0.8s ease;
+        }
+
+        .contacts {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .contact-btn {
+            display: inline-block;
+            padding: 9px 17px;
+
+            color: #d4af37;
+            background: #101010;
+            border: 1px solid #423717;
+            border-radius: 4px;
+
+            text-decoration: none;
+            font-family: "Segoe UI", sans-serif;
+            font-size: 14px;
+
+            transition: 0.3s ease;
+        }
+
+        .contact-btn:hover {
+            color: #fff0a6;
+            border-color: #d4af37;
+            transform: translateY(-2px);
+        }
+
+        /* =====================================================
+           ПЛАШКА KOROL'S FUN
+        ===================================================== */
+
+        #fun-block {
+            max-width: 850px;
+            margin: 40px auto 20px;
+            padding: 25px;
+
+            background: linear-gradient(135deg, #121212, #0c0c0c);
+            border: 1px solid #4b3d18;
+            border-left: 4px solid #d4af37;
+            border-radius: 6px;
+
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+            animation: blockAppear 0.8s ease;
+        }
+
+        #fun-block h2 {
+            color: #d4af37;
+            font-size: 25px;
+            margin-bottom: 8px;
+        }
+
+        #fun-block p {
+            color: #aaa080;
+            font-family: "Segoe UI", sans-serif;
+            font-size: 14px;
+        }
+
+        /* =====================================================
+           НАВИГАЦИЯ
+        ===================================================== */
+
+        .navigation {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+
+            padding: 25px 10px;
+
+            background: #0a0a0a;
+            border-bottom: 1px solid #29220f;
+
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .tab-button {
+            position: relative;
+            padding: 12px 35px;
+
+            border: none;
+            background: transparent;
+            color: #756b4d;
+
+            font-family: Georgia, "Times New Roman", serif;
+            font-size: 17px;
+            cursor: pointer;
+
+            transition: 0.3s ease;
+        }
+
+        .tab-button::after {
+            content: "";
+            position: absolute;
+            left: 50%;
+            bottom: 3px;
+
+            width: 0;
+            height: 1px;
+
+            background: #d4af37;
+            transform: translateX(-50%);
+            transition: width 0.3s ease;
+        }
+
+        .tab-button:hover,
+        .tab-button.active {
+            color: #d4af37;
+        }
+
+        .tab-button.active::after {
+            width: 65%;
+        }
+
+        /* =====================================================
+           КОНТЕЙНЕР
+        ===================================================== */
+
+        .container {
+            max-width: 1250px;
+            margin: 0 auto;
+            padding: 50px 25px 70px;
+        }
+
+        .tab-content {
+            display: none;
+            animation: tabAppear 0.45s ease;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .section-title {
+            text-align: center;
+            color: #d4af37;
+            font-size: 30px;
+            letter-spacing: 3px;
+            margin-bottom: 12px;
+        }
+
+        .section-line {
+            width: 65px;
+            height: 1px;
+            margin: 0 auto 40px;
+            background: #d4af37;
+        }
+
+        /* =====================================================
+           КАРТОЧКИ
+        ===================================================== */
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+            gap: 28px;
+        }
+
+        .card {
+            position: relative;
+            height: 350px;
+            overflow: hidden;
+
+            background: #111;
+            border: 1px solid #3c3219;
+            border-radius: 6px;
+            cursor: pointer;
+
+            opacity: 0;
+            animation: cardAppear 0.7s ease forwards;
+
+            transition:
+                transform 0.4s ease,
+                border-color 0.4s ease,
+                box-shadow 0.4s ease;
+        }
+
+        .card:nth-child(2) { animation-delay: 0.08s; }
+        .card:nth-child(3) { animation-delay: 0.16s; }
+        .card:nth-child(4) { animation-delay: 0.24s; }
+        .card:nth-child(5) { animation-delay: 0.32s; }
+        .card:nth-child(6) { animation-delay: 0.40s; }
+
+        .card:hover {
+            transform: translateY(-6px);
+            border-color: #d4af37;
+            box-shadow:
+                0 15px 40px rgba(0, 0, 0, 0.7),
+                0 0 20px rgba(212, 175, 55, 0.08);
+        }
+
+        .card-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+
+            transition:
+                transform 0.7s ease,
+                filter 0.5s ease;
+        }
+
+        .card:hover .card-image {
+            transform: scale(1.05);
+            filter: brightness(0.4);
+        }
+
+        .card::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+
+            background: linear-gradient(
+                to top,
+                rgba(0, 0, 0, 0.96),
+                rgba(0, 0, 0, 0.05) 70%
+            );
+
+            pointer-events: none;
+        }
+
+        .card-info {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 2;
+
+            padding: 24px;
+
+            transform: translateY(58px);
+
+            transition: transform 0.45s ease;
+        }
+
+        .card:hover .card-info {
+            transform: translateY(0);
+        }
+
+        .card-title {
+            color: #d4af37;
+            font-size: 23px;
+            margin-bottom: 9px;
+        }
+
+        .card-description {
+            color: #c5bfa9;
+            font-family: "Segoe UI", sans-serif;
+            font-size: 14px;
+            line-height: 1.5;
+            margin-bottom: 15px;
+
+            opacity: 0;
+            transition: opacity 0.35s ease 0.1s;
+        }
+
+        .card:hover .card-description {
+            opacity: 1;
+        }
+
+        .play-btn {
+            display: inline-block;
+            padding: 9px 22px;
+
+            color: #090909;
+            background: #d4af37;
+
+            border: 1px solid #d4af37;
+            border-radius: 3px;
+
+            text-decoration: none;
+
+            font-family: "Segoe UI", sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+
+            opacity: 0;
+            transform: translateY(10px);
+
+            transition:
+                opacity 0.35s ease,
+                transform 0.35s ease,
+                background 0.25s ease;
+        }
+
+        .card:hover .play-btn {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .play-btn:hover {
+            background: #f0d36b;
+        }
+
+        /* =====================================================
+           ИГРОВОЕ ОКНО С X
+        ===================================================== */
+
+        #game-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 3000;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            padding: 20px;
+
+            background: rgba(0, 0, 0, 0.88);
+            backdrop-filter: blur(5px);
+
+            opacity: 0;
+            visibility: hidden;
+
+            transition:
+                opacity 0.35s ease,
+                visibility 0.35s ease;
+        }
+
+        #game-modal.open {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .game-window {
+            position: relative;
+
+            width: min(1400px, 96vw);
+            height: min(900px, 94vh);
+
+            background: #050505;
+            border: 1px solid #d4af37;
+            border-radius: 8px;
+
+            box-shadow:
+                0 20px 80px rgba(0, 0, 0, 0.9),
+                0 0 35px rgba(212, 175, 55, 0.12);
+
+            overflow: hidden;
+
+            transform: scale(0.94) translateY(15px);
+            transition: transform 0.35s ease;
+        }
+
+        #game-modal.open .game-window {
+            transform: scale(1) translateY(0);
+        }
+
+        #game-frame {
+            display: block;
+            width: 100%;
+            height: 100%;
+            border: 0;
+            background: #000;
+        }
+
+        .game-close {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 5;
+
+            width: 42px;
+            height: 42px;
+
+            border: 1px solid #d4af37;
+            border-radius: 50%;
+
+            color: #d4af37;
+            background: rgba(5, 5, 5, 0.9);
+
+            font-size: 28px;
+            line-height: 36px;
+            font-family: Arial, sans-serif;
+
+            cursor: pointer;
+
+            transition:
+                transform 0.25s ease,
+                background 0.25s ease,
+                color 0.25s ease;
+        }
+
+        .game-close:hover {
+            transform: rotate(90deg);
+            color: #080808;
+            background: #d4af37;
+        }
+
+        /* =====================================================
+           COOKIES
+        ===================================================== */
+
+        #cookie-banner {
+            position: fixed;
+            left: 20px;
+            right: 20px;
+            bottom: 20px;
+            z-index: 2500;
+
+            max-width: 1000px;
+            margin: 0 auto;
+
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+
+            padding: 18px 20px;
+
+            background: #111111;
+            border: 1px solid #5b4a1c;
+            border-left: 4px solid #d4af37;
+            border-radius: 7px;
+
+            box-shadow: 0 15px 50px rgba(0, 0, 0, 0.8);
+
+            transform: translateY(140%);
+            opacity: 0;
+            visibility: hidden;
+
+            transition:
+                transform 0.45s ease,
+                opacity 0.45s ease,
+                visibility 0.45s ease;
+        }
+
+        #cookie-banner.show {
+            transform: translateY(0);
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .cookie-text {
+            color: #c5bfa9;
+            font-family: "Segoe UI", sans-serif;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .cookie-text strong {
+            color: #d4af37;
+        }
+
+        .cookie-text a {
+            color: #d4af37;
+        }
+
+        .cookie-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .cookie-btn {
+            padding: 9px 15px;
+
+            border-radius: 4px;
+            cursor: pointer;
+
+            font-family: "Segoe UI", sans-serif;
+            font-size: 13px;
+
+            transition: 0.25s ease;
+        }
+
+        .cookie-accept {
+            color: #080808;
+            background: #d4af37;
+            border: 1px solid #d4af37;
+        }
+
+        .cookie-accept:hover {
+            background: #f0d36b;
+        }
+
+        .cookie-reject,
+        .cookie-more {
+            color: #d4af37;
+            background: #0d0d0d;
+            border: 1px solid #4b3d18;
+        }
+
+        .cookie-reject:hover,
+        .cookie-more:hover {
+            border-color: #d4af37;
+        }
+
+        /* =====================================================
+           FOOTER
+        ===================================================== */
+
+        footer {
+            padding: 30px 20px;
+            text-align: center;
+
+            color: #625a42;
+            border-top: 1px solid #29220f;
+
+            font-family: "Segoe UI", sans-serif;
+            font-size: 13px;
+        }
+
+        .footer-cookie-link {
+            color: #8e7b42;
+            text-decoration: none;
+            margin-left: 8px;
+        }
+
+        .footer-cookie-link:hover {
+            color: #d4af37;
+        }
+
+        /* =====================================================
+           АНИМАЦИИ
+        ===================================================== */
+
+        @keyframes overlayAppear {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes logoAppear {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes blockAppear {
+            from {
+                opacity: 0;
+                transform: translateY(15px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes cardAppear {
+            from {
+                opacity: 0;
+                transform: translateY(25px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes tabAppear {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* =====================================================
+           МОБИЛЬНАЯ ВЕРСИЯ
+        ===================================================== */
+
+        @media (max-width: 700px) {
+
+            .device-options {
+                gap: 20px;
+            }
+
+            .device-choice {
+                width: 115px;
+            }
+
+            .logo {
+                font-size: 37px;
+                letter-spacing: 3px;
+            }
+
+            .navigation {
+                padding: 15px 5px;
+            }
+
+            .tab-button {
+                padding: 10px 22px;
+            }
+
+            .container {
+                padding: 35px 15px 60px;
+            }
+
+            .grid {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+
+            .card {
+                height: 300px;
+            }
+
+            .card.mobile-open .card-image {
+                transform: scale(1.05);
+                filter: brightness(0.4);
+            }
+
+            .card.mobile-open .card-info {
+                transform: translateY(0);
+            }
+
+            .card.mobile-open .card-description {
+                opacity: 1;
+            }
+
+            .card.mobile-open .play-btn {
+                opacity: 1;
+                transform: translateY(0);
+            }
+
+            .card:hover {
+                transform: none;
+                border-color: #3c3219;
+                box-shadow: none;
+            }
+
+            .card:hover .card-image {
+                transform: none;
+                filter: none;
+            }
+
+            .card:hover .card-info {
+                transform: translateY(58px);
+            }
+
+            .card:hover .card-description {
+                opacity: 0;
+            }
+
+            .card:hover .play-btn {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            .card.mobile-open {
+                border-color: #d4af37;
+
+                box-shadow:
+                    0 15px 35px rgba(0, 0, 0, 0.7),
+                    0 0 20px rgba(212, 175, 55, 0.08);
+            }
+
+            .card.mobile-open:hover .card-image {
+                transform: scale(1.05);
+                filter: brightness(0.4);
+            }
+
+            .card.mobile-open:hover .card-info {
+                transform: translateY(0);
+            }
+
+            .card.mobile-open:hover .card-description {
+                opacity: 1;
+            }
+
+            .card.mobile-open:hover .play-btn {
+                opacity: 1;
+                transform: translateY(0);
+            }
+
+            #cookie-banner {
+                left: 10px;
+                right: 10px;
+                bottom: 10px;
+
+                align-items: stretch;
+                flex-direction: column;
+                gap: 12px;
+            }
+
+            .cookie-buttons {
+                width: 100%;
+            }
+
+            .cookie-btn {
+                flex: 1;
+            }
+
+            #game-modal {
+                padding: 8px;
+            }
+
+            .game-window {
+                width: 100%;
+                height: 96vh;
+                border-radius: 6px;
+            }
+
+            .game-close {
+                width: 38px;
+                height: 38px;
+                font-size: 24px;
+                line-height: 32px;
+            }
+        }
+    </style>
+<script type="text/javascript" nonce="0519dd861326419ab880ec51b7d" src="//local.adguard.org?ts=1790850792089&amp;type=content-script&amp;dmn=chatgpt.com&amp;url=https%3A%2F%2Fchatgpt.com%2Fbackend-api%2Festuary%2Fcontent%3Fid%3Dfile_0000000059088210a4a76b0883b4a92e%26fn%3Dindex.html%26cd%3Dattachment%26ts%3D497458%26p%3Dfs%26cid%3D1%26sig%3Daecaab41a5bea57459f58c08efb3e5046c45a41af6d9f312411948738c456f2e%26v%3D0&amp;app=chrome.exe&amp;css=2&amp;js=1&amp;rel=1&amp;rji=1&amp;sbe=1"></script><script type="text/javascript" nonce="0519dd861326419ab880ec51b7d" src="//local.adguard.org?ts=1790850792089&amp;name=AdGuard%20Extra&amp;name=AdGuard%20Popup%20Blocker&amp;type=user-script"></script></head>
+
+<body>
+
+    <!-- =====================================================
+         ОКНО ВЫБОРА УСТРОЙСТВА
+    ===================================================== -->
+
+    <div id="device-overlay">
+        <h1>С чего вы заходите?</h1>
+
+        <div class="device-options">
+
+            <div class="device-choice" onclick="selectDevice('mobile')">
+                <span class="icon">📱</span>
+                <p>Телефон</p>
+            </div>
+
+            <div class="device-choice" onclick="selectDevice('desktop')">
+                <span class="icon">💻</span>
+                <p>ПК</p>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- =====================================================
+         ШАПКА
+    ===================================================== -->
+
+    <header>
+        <div class="logo">
+            KOROL'S FUN
+        </div>
+
+        <div class="contacts">
+            <a
+                href="https://t.me/NONAME_DANGER"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="contact-btn"
+            >
+                Telegram: @NONAME_DANGER
+            </a>
+
+            <a href="#" class="contact-btn">
+                Discord: fhhdjhd_05694
+            </a>
+        </div>
+    </header>
+
+    <!-- =====================================================
+         ПЛАШКА
+    ===================================================== -->
+
+    <section id="fun-block">
+        <h2>Korol's Fun</h2>
+        <p>Моя коллекция игр, инструментов и развлечений.</p>
+    </section>
+
+    <!-- =====================================================
+         ВКЛАДКИ
+    ===================================================== -->
+
+    <nav class="navigation">
+        <button
+            class="tab-button active"
+            onclick="openTab('games', this)"
+        >
+            Игры
+        </button>
+
+        <button
+            class="tab-button"
+            onclick="openTab('tools', this)"
+        >
+            Инструменты
+        </button>
+    </nav>
+
+    <main class="container">
+
+        <!-- =================================================
+             ИГРЫ
+        ================================================== -->
+
+        <section id="games" class="tab-content active">
+
+            <h2 class="section-title">Игры</h2>
+            <div class="section-line"></div>
+
+            <div class="grid">
+
+                <div class="card">
+                    <img src="wintotry.png" alt="Try-To-Win" class="card-image">
+
+                    <div class="card-info">
+                        <h3 class="card-title">Try-To-Win</h3>
+
+                        <p class="card-description">
+                            Испытай удачу и попробуй дойти до победы.
+                        </p>
+
+                        <a href="trytowin.html" class="play-btn game-link">
+                            Играть
+                        </a>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <img src="aim.png" alt="AIM Master" class="card-image">
+
+                    <div class="card-info">
+                        <h3 class="card-title">AIM Master</h3>
+
+                        <p class="card-description">
+                            Проверь скорость реакции и точность.
+                        </p>
+
+                        <a href="aim_master.html" class="play-btn game-link">
+                            Играть
+                        </a>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <img src="block.png" alt="Block Destroyer" class="card-image">
+
+                    <div class="card-info">
+                        <h3 class="card-title">Block Destroyer</h3>
+
+                        <p class="card-description">
+                            Разрушай блоки и набирай очки.
+                        </p>
+
+                        <a href="main.html" class="play-btn game-link">
+                            Играть
+                        </a>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <img src="train.png" alt="Выжить в поезде" class="card-image">
+
+                    <div class="card-info">
+                        <h3 class="card-title">Выжить в поезде</h3>
+
+                        <p class="card-description">
+                            Постарайся выжить в опасном путешествии.
+                        </p>
+
+                        <a href="выжить в поезде.html" class="play-btn game-link">
+                            Играть
+                        </a>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <img src="zombi.png" alt="Zombi Crasher" class="card-image">
+
+                    <div class="card-info">
+                        <h3 class="card-title">Zombi Crasher</h3>
+
+                        <p class="card-description">
+                            Сражайся с зомби и продержись как можно дольше.
+                        </p>
+
+                        <a href="zombi crasher.html" class="play-btn game-link">
+                            Играть
+                        </a>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <img src="cute jump.png" alt="Cute Jump" class="card-image">
+
+                    <div class="card-info">
+                        <h3 class="card-title">Cute Jump</h3>
+
+                        <p class="card-description">
+                            Прыгай всё выше и не дай себе упасть.
+                        </p>
+
+                        <a href="cute jump-.html" class="play-btn game-link">
+                            Играть
+                        </a>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- =================================================
+             ИНСТРУМЕНТЫ
+        ================================================== -->
+
+        <section id="tools" class="tab-content">
+
+            <h2 class="section-title">Инструменты</h2>
+            <div class="section-line"></div>
+
+            <div class="grid">
+
+                <div class="card">
+                    <img src="image.png" alt="Step by Step" class="card-image">
+
+                    <div class="card-info">
+                        <h3 class="card-title">Step by Step</h3>
+
+                        <p class="card-description">
+                            Инструмент для прохождения шагов и выполнения заданий.
+                        </p>
+
+                        <a href="stepbystep.html" class="play-btn game-link">
+                            Открыть
+                        </a>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+    </main>
+
+    <footer>
+        © 2026 Korol's Fun
+        <a href="cookies.html" class="footer-cookie-link">
+            Политика cookies
+        </a>
+    </footer>
+
+    <!-- =====================================================
+         ИГРОВОЕ ОКНО
+    ===================================================== -->
+
+    <div id="game-modal" aria-hidden="true">
+
+        <div class="game-window">
+
+            <button
+                class="game-close"
+                type="button"
+                aria-label="Закрыть игру"
+                onclick="closeGame()"
+            >
+                ×
+            </button>
+
+            <iframe
+                id="game-frame"
+                title="Игра Korol's Fun"
+                allow="fullscreen; autoplay"
+            ></iframe>
+
+        </div>
+    </div>
+
+    <!-- =====================================================
+         COOKIE-БАННЕР
+    ===================================================== -->
+
+    <div id="cookie-banner">
+
+        <div class="cookie-text">
+            <strong>Korol's Fun использует cookies.</strong>
+            Они нужны для сохранения настроек сайта, например выбора устройства.
+            Подробнее — на странице
+            <a href="cookies.html">о cookies</a>.
+        </div>
+
+        <div class="cookie-buttons">
+
+            <button
+                type="button"
+                class="cookie-btn cookie-accept"
+                onclick="setCookieConsent('accepted')"
+            >
+                Принять
+            </button>
+
+            <button
+                type="button"
+                class="cookie-btn cookie-reject"
+                onclick="setCookieConsent('rejected')"
+            >
+                Отклонить
+            </button>
+
+            <button
+                type="button"
+                class="cookie-btn cookie-more"
+                onclick="location.href='cookies.html'"
+            >
+                Подробнее
+            </button>
+
+        </div>
+    </div>
+
+    <script>
+
+        /* =====================================================
+           COOKIES
+        ===================================================== */
+
+        function setCookie(name, value, days) {
+            const maxAge = days * 24 * 60 * 60;
+
+            document.cookie =
+                encodeURIComponent(name) +
+                "=" +
+                encodeURIComponent(value) +
+                "; max-age=" +
+                maxAge +
+                "; path=/; SameSite=Lax";
+        }
+
+        function getCookie(name) {
+            const cookies = document.cookie.split("; ");
+
+            for (const cookie of cookies) {
+                const separator = cookie.indexOf("=");
+
+                if (separator === -1) {
+                    continue;
+                }
+
+                const key = decodeURIComponent(
+                    cookie.slice(0, separator)
+                );
+
+                if (key === name) {
+                    return decodeURIComponent(
+                        cookie.slice(separator + 1)
+                    );
+                }
+            }
+
+            return null;
+        }
+
+        function setCookieConsent(value) {
+            setCookie("korol_cookie_consent", value, 365);
+
+            const banner =
+                document.getElementById("cookie-banner");
+
+            banner.classList.remove("show");
+        }
+
+        function showCookieBannerIfNeeded() {
+            const consent =
+                getCookie("korol_cookie_consent");
+
+            if (!consent) {
+                setTimeout(() => {
+                    document
+                        .getElementById("cookie-banner")
+                        .classList.add("show");
+                }, 700);
+            }
+        }
+
+
+        /* =====================================================
+           ВЫБОР УСТРОЙСТВА
+        ===================================================== */
+
+        function selectDevice(device) {
+
+            setCookie("korol_device", device, 365);
+
+            const overlay =
+                document.getElementById("device-overlay");
+
+            if (overlay) {
+
+                overlay.style.opacity = "0";
+
+                setTimeout(() => {
+                    overlay.style.display = "none";
+                }, 400);
+            }
+        }
+
+
+        /* =====================================================
+           ВКЛАДКИ
+        ===================================================== */
+
+        function openTab(tabId, button) {
+
+            const tabs =
+                document.querySelectorAll(".tab-content");
+
+            const buttons =
+                document.querySelectorAll(".tab-button");
+
+            tabs.forEach(tab => {
+                tab.classList.remove("active");
+            });
+
+            buttons.forEach(btn => {
+                btn.classList.remove("active");
+            });
+
+            const selectedTab =
+                document.getElementById(tabId);
+
+            if (selectedTab) {
+                selectedTab.classList.add("active");
+            }
+
+            if (button) {
+                button.classList.add("active");
+            }
+        }
+
+
+        /* =====================================================
+           МОБИЛЬНЫЕ КАРТОЧКИ
+        ===================================================== */
+
+        const cards =
+            document.querySelectorAll(".card");
+
+        cards.forEach(card => {
+
+            card.addEventListener("click", function(event) {
+
+                if (window.innerWidth > 700) {
+                    return;
+                }
+
+                if (event.target.closest(".play-btn")) {
+                    return;
+                }
+
+                cards.forEach(otherCard => {
+
+                    if (otherCard !== card) {
+                        otherCard.classList.remove(
+                            "mobile-open"
+                        );
+                    }
+
+                });
+
+                card.classList.toggle("mobile-open");
+            });
+        });
+
+
+        /* =====================================================
+           ОТКРЫТИЕ ИГР В IFRAME
+           X закрывает окно и возвращает на сайт.
+        ===================================================== */
+
+        const gameModal =
+            document.getElementById("game-modal");
+
+        const gameFrame =
+            document.getElementById("game-frame");
+
+        const gameLinks =
+            document.querySelectorAll(".game-link");
+
+        gameLinks.forEach(link => {
+
+            link.addEventListener("click", function(event) {
+
+                event.preventDefault();
+
+                const url = this.getAttribute("href");
+
+                openGame(url);
+            });
+        });
+
+        function openGame(url) {
+
+            gameFrame.src = url;
+
+            gameModal.classList.add("open");
+            gameModal.setAttribute("aria-hidden", "false");
+
+            document.body.classList.add("game-open");
+        }
+
+        function closeGame() {
+
+            gameModal.classList.remove("open");
+            gameModal.setAttribute("aria-hidden", "true");
+
+            document.body.classList.remove("game-open");
+
+            setTimeout(() => {
+                gameFrame.src = "about:blank";
+            }, 350);
+        }
+
+
+        /* =====================================================
+           ЗАКРЫТИЕ ПО ESC
+        ===================================================== */
+
+        document.addEventListener("keydown", function(event) {
+
+            if (event.key === "Escape") {
+                closeGame();
+            }
+
+        });
+
+
+        /* =====================================================
+           КЛИК ПО ТЁМНОМУ ФОНУ
+        ===================================================== */
+
+        gameModal.addEventListener("click", function(event) {
+
+            if (event.target === gameModal) {
+                closeGame();
+            }
+
+        });
+
+
+        /* =====================================================
+           ПРИ ИЗМЕНЕНИИ РАЗМЕРА
+        ===================================================== */
+
+        window.addEventListener("resize", function() {
+
+            if (window.innerWidth > 700) {
+
+                cards.forEach(card => {
+                    card.classList.remove("mobile-open");
+                });
+
+            }
+
+        });
+
+
+        /* =====================================================
+           СТАРТ
+        ===================================================== */
+
+        showCookieBannerIfNeeded();
+
+    </script>
+
+</body>
+</html>
