@@ -1,0 +1,812 @@
+ 
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Try-To-Win | Симулятор против лудомании</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #121212;
+            color: #fff;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .game-container {
+            max-width: 900px;
+            width: 100%;
+            background: #1e1e1e;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.7);
+            text-align: center;
+        }
+
+        .home-btn {
+            position: fixed;
+            top: 14px;
+            right: 14px;
+            z-index: 99999;
+            width: 44px;
+            height: 44px;
+            border: 1px solid #555;
+            border-radius: 10px;
+            background: #252525;
+            color: white;
+            font-size: 27px;
+            line-height: 1;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,0,0,.4);
+        }
+
+        .home-btn:hover {
+            background: #ff4757;
+        }
+
+        .disclaimer-box {
+            background: #7f1d1d;
+            border: 2px solid #ef4444;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+            font-size: 14px;
+            color: #fca5a5;
+            font-weight: bold;
+        }
+
+        h1 {
+            color: #ff4757;
+            font-size: 36px;
+            margin-bottom: 20px;
+        }
+
+        .balance-section {
+            background: #2d2d2d;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .balance-box {
+            font-size: 28px;
+            font-weight: bold;
+            color: #2ed573;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+            color: white;
+        }
+
+        .btn:disabled {
+            background: #444 !important;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .btn-farm {
+            background: #1e90ff;
+            font-size: 16px;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .btn-farm:hover:not(:disabled) {
+            background: #117fe3;
+        }
+
+        .tabs {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 25px;
+            flex-wrap: wrap;
+        }
+
+        .tab-btn {
+            background: #3a3a3a;
+            padding: 10px 20px;
+        }
+
+        .tab-btn.active {
+            background: #ff4757;
+        }
+
+        .game-screen {
+            display: none;
+            background: #252525;
+            padding: 25px;
+            border-radius: 12px;
+            min-height: 350px;
+        }
+
+        .game-screen.active {
+            display: block;
+        }
+
+        .bet-input-global {
+            padding: 10px;
+            background: #121212;
+            border: 1px solid #444;
+            color: white;
+            border-radius: 6px;
+            font-size: 16px;
+            text-align: center;
+            width: 180px;
+            margin-bottom: 15px;
+        }
+
+        .wheel-wrapper {
+            position: relative;
+            width: 100%;
+            height: 80px;
+            background: #121212;
+            margin: 20px 0;
+            overflow: hidden;
+            border: 2px solid #333;
+            border-radius: 4px;
+        }
+
+        .pointer {
+            position: absolute;
+            left: 50%;
+            top: 0;
+            width: 4px;
+            height: 100%;
+            background: #ff4757;
+            z-index: 10;
+            transform: translateX(-50%);
+            box-shadow: 0 0 10px #ff4757;
+        }
+
+        .wheel-tape {
+            display: flex;
+            height: 100%;
+            width: max-content;
+            transform: translateX(0);
+        }
+
+        .sector {
+            width: 70px;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 14px;
+            border-right: 1px solid #121212;
+            flex-shrink: 0;
+        }
+
+        .sector.grey { background: #747d8c; }
+        .sector.green { background: #2ed573; }
+        .sector.blue { background: #1e90ff; }
+        .sector.gold { background: #ffa502; color: black; }
+
+        .roulette-btns {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn-r.grey { background: #57606f; }
+        .btn-r.green { background: #2ed573; }
+        .btn-r.blue { background: #1e90ff; }
+        .btn-r.gold { background: #ffa502; color: black; }
+
+        .matches-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .match-card {
+            background: #1e1e1e;
+            padding: 15px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            border: 1px solid #333;
+        }
+
+        .match-teams {
+            font-size: 18px;
+            font-weight: bold;
+            width: 45%;
+            text-align: left;
+        }
+
+        .match-btns {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn-team {
+            background: #3a3a3a;
+            font-size: 14px;
+        }
+
+        .btn-team:hover {
+            background: #555;
+        }
+
+        .mines-status {
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+
+        .mines-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
+            max-width: 300px;
+            margin: 0 auto 20px auto;
+        }
+
+        .mine-cell {
+            width: 50px;
+            height: 50px;
+            background: #3a3a3a;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .mine-cell:hover { background: #4e4e4e; }
+        .mine-cell.safe { background: #2ed573; color: white; }
+        .mine-cell.blown { background: #ff4757; color: white; }
+
+        .mines-controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn-mine-start { background: #2ed573; }
+        .btn-mine-cashout { background: #ffa502; color: black; }
+
+        .status-text {
+            margin-top: 20px;
+            font-size: 18px;
+            font-weight: bold;
+            color: #ffa502;
+            min-height: 27px;
+        }
+
+        @media (max-width: 600px) {
+            body { padding: 10px; }
+            .game-container { padding: 15px; }
+            h1 { font-size: 29px; }
+            .balance-box { font-size: 23px; }
+            .game-screen { padding: 15px; }
+            .match-card {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .match-teams { width: 100%; text-align: center; }
+            .match-btns { justify-content: center; }
+            .match-btns .btn { padding: 10px; }
+            .mine-cell { width: 100%; height: 45px; }
+        }
+    </style>
+</head>
+
+<body>
+    <button class="home-btn" onclick="goHome()" aria-label="На главную" title="На главную">×</button>
+
+    <div class="game-container">
+        <div class="disclaimer-box">
+            ДИСКЛЕЙМЕР: Проект «Try-To-Win» является исключительно симулятором.
+            Здесь используются только виртуальные фишки. Вы не можете вносить
+            реальные деньги или выводить выигрыш. Цель игры — показать реальную
+            математику азартных игр, где на дистанции игрок всегда проигрывает.
+            Борьба с лудоманией!
+        </div>
+
+        <h1>Try-To-Win</h1>
+
+        <section class="balance-section">
+            <div class="balance-box">
+                Баланс: <span id="balance">1000</span> ₽
+            </div>
+            <button id="farm-btn" class="btn btn-farm" onclick="startFarmTimer()">
+                Получить 1 000 ₽ (Ожидание 15 сек)
+            </button>
+        </section>
+
+        <div class="tabs">
+            <button class="btn tab-btn active" onclick="switchTab('roulette', this)">🎰 Рулетка</button>
+            <button class="btn tab-btn" onclick="switchTab('sports', this)">⚽ Ставки на спорт</button>
+            <button class="btn tab-btn" onclick="switchTab('mines', this)">💣 Мины</button>
+        </div>
+
+        <input
+            type="number"
+            id="globalBet"
+            class="bet-input-global"
+            value="100"
+            min="10"
+            placeholder="Сумма ставки для игр"
+        >
+
+        <div id="roulette-screen" class="game-screen active">
+            <h2>Рулетка (Колесо Rust)</h2>
+
+            <div class="wheel-wrapper">
+                <div class="pointer"></div>
+                <div class="wheel-tape" id="wheelTape"></div>
+            </div>
+
+            <div class="roulette-btns">
+                <button class="btn btn-r grey" onclick="playRoulette('grey')">На Серый (x2)</button>
+                <button class="btn btn-r green" onclick="playRoulette('green')">На Зеленый (x3)</button>
+                <button class="btn btn-r blue" onclick="playRoulette('blue')">На Синий (x5)</button>
+                <button class="btn btn-r gold" onclick="playRoulette('gold')">На Золото (x20)</button>
+            </div>
+        </div>
+
+        <div id="sports-screen" class="game-screen">
+            <h2>Ставки на футбольные матчи (Все кефы x2)</h2>
+            <p style="font-size: 14px; margin-bottom: 15px; color: #aaa;">
+                Выберите команду. Шансы 50/50, но чистая случайность покажет правду.
+            </p>
+            <div class="matches-container" id="matchesContainer"></div>
+        </div>
+
+        <div id="mines-screen" class="game-screen">
+            <h2>Мины (Каждый шаг x1.5)</h2>
+            <div class="mines-status" id="minesStatus">
+                Текущий кеф: x1.0 | Возможный куш: 0 ₽
+            </div>
+            <div class="mines-grid" id="minesGrid"></div>
+
+            <div class="mines-controls">
+                <button class="btn btn-mine-start" id="btnMineStart" onclick="startMinesGame()">
+                    Начать игру
+                </button>
+                <button class="btn btn-mine-cashout" id="btnMineCashout" onclick="cashoutMines()" disabled>
+                    Забрать деньги
+                </button>
+            </div>
+        </div>
+
+        <div id="statusText" class="status-text">Удачи! Попробуй обыграть алгоритм.</div>
+    </div>
+
+    <script>
+        // Общий ключ: его позже будет читать главная страница.
+        const LAST_GAME_KEY = "korol_last_game_v2";
+        const GAME_NAME = "Try-To-Win";
+
+        function readLastGame() {
+            // Сначала пробуем cookie.
+            try {
+                const prefix = encodeURIComponent(LAST_GAME_KEY) + "=";
+                const cookie = document.cookie
+                    .split("; ")
+                    .find(item => item.startsWith(prefix));
+
+                if (cookie) {
+                    return JSON.parse(decodeURIComponent(cookie.substring(prefix.length)));
+                }
+            } catch (error) {
+                console.warn("Не удалось прочитать cookie:", error);
+            }
+
+            // Если cookie недоступна, пробуем localStorage.
+            try {
+                const saved = localStorage.getItem(LAST_GAME_KEY);
+                return saved ? JSON.parse(saved) : null;
+            } catch (error) {
+                console.warn("Не удалось прочитать localStorage:", error);
+                return null;
+            }
+        }
+
+        function saveGameProgress(name, score) {
+            const data = {
+                name: name,
+                url: window.location.pathname,
+                score: score,
+                time: Date.now()
+            };
+
+            const value = JSON.stringify(data);
+
+            try {
+                localStorage.setItem(LAST_GAME_KEY, value);
+            } catch (error) {
+                console.warn("Не удалось сохранить localStorage:", error);
+            }
+
+            try {
+                let cookie = encodeURIComponent(LAST_GAME_KEY) + "=" +
+                    encodeURIComponent(value) +
+                    "; max-age=31536000; path=/; SameSite=Lax";
+
+                if (window.location.protocol === "https:") {
+                    cookie += "; Secure";
+                }
+
+                document.cookie = cookie;
+            } catch (error) {
+                console.warn("Не удалось сохранить cookie:", error);
+            }
+        }
+
+        function goHome() {
+            // Запоминаем игру и баланс перед выходом.
+            saveGameProgress(GAME_NAME, balance);
+            window.location.href = "./index.html";
+        }
+
+        let balance = 1000;
+        let isSpinning = false;
+
+        const balanceEl = document.getElementById("balance");
+        const statusText = document.getElementById("statusText");
+        const globalBetInput = document.getElementById("globalBet");
+
+        // Если раньше уже играли в Try-To-Win, восстанавливаем баланс.
+        const previousSave = readLastGame();
+
+        if (
+            previousSave &&
+            previousSave.name === GAME_NAME &&
+            Number.isFinite(Number(previousSave.score))
+        ) {
+            balance = Math.max(0, Number(previousSave.score));
+        }
+
+        function updateBalanceDisplay() {
+            balanceEl.innerText = balance;
+            saveGameProgress(GAME_NAME, balance);
+        }
+
+        // Сохраняем игру при открытии страницы.
+        updateBalanceDisplay();
+
+        // --- ПОЛУЧЕНИЕ ВИРТУАЛЬНЫХ ДЕНЕГ ---
+        function startFarmTimer() {
+            const btn = document.getElementById("farm-btn");
+
+            if (btn.disabled) return;
+
+            btn.disabled = true;
+            let timeLeft = 15;
+
+            btn.innerText = `Ожидание: ${timeLeft} сек...`;
+
+            const interval = setInterval(() => {
+                timeLeft--;
+                btn.innerText = `Ожидание: ${timeLeft} сек...`;
+
+                if (timeLeft <= 0) {
+                    clearInterval(interval);
+                    balance += 1000;
+                    updateBalanceDisplay();
+
+                    btn.disabled = false;
+                    btn.innerText = "Получить 1 000 ₽ (Ожидание 15 сек)";
+                    statusText.innerText = "На баланс начислено 1 000 виртуальных рублей.";
+                }
+            }, 1000);
+        }
+
+        // --- ТАБЫ ---
+        function switchTab(game, button) {
+            document.querySelectorAll(".game-screen").forEach(screen => {
+                screen.classList.remove("active");
+            });
+
+            document.querySelectorAll(".tab-btn").forEach(tab => {
+                tab.classList.remove("active");
+            });
+
+            button.classList.add("active");
+            document.getElementById(`${game}-screen`).classList.add("active");
+            statusText.innerText = "Режим изменен. Сделайте ставку!";
+
+            if (game === "sports") {
+                generateMatches();
+            }
+        }
+
+        function getBet() {
+            const bet = parseInt(globalBetInput.value, 10);
+
+            if (isNaN(bet) || bet <= 0) {
+                statusText.innerText = "Укажите верную ставку!";
+                return false;
+            }
+
+            if (bet > balance) {
+                statusText.innerText = "Недостаточно рублей на балансе!";
+                return false;
+            }
+
+            return bet;
+        }
+
+        // --- РУЛЕТКА ---
+        const sectorWidth = 71;
+        const wheelTape = document.getElementById("wheelTape");
+
+        const baseSectors = [
+            { color: "gold", m: 20 },
+            { color: "grey", m: 2 },
+            { color: "green", m: 3 },
+            { color: "grey", m: 2 },
+            { color: "blue", m: 5 },
+            { color: "grey", m: 2 },
+            { color: "green", m: 3 },
+            { color: "grey", m: 2 },
+            { color: "blue", m: 5 },
+            { color: "grey", m: 2 },
+            { color: "green", m: 3 },
+            { color: "grey", m: 2 },
+            { color: "green", m: 3 },
+            { color: "grey", m: 2 },
+            { color: "blue", m: 5 },
+            { color: "grey", m: 2 },
+            { color: "green", m: 3 },
+            { color: "grey", m: 2 }
+        ];
+
+        let fullSectors = [];
+
+        for (let i = 0; i < 15; i++) {
+            fullSectors = fullSectors.concat(baseSectors);
+        }
+
+        fullSectors.forEach(sec => {
+            const div = document.createElement("div");
+            div.classList.add("sector", sec.color);
+            div.innerText = `x${sec.m}`;
+            wheelTape.appendChild(div);
+        });
+
+        function playRoulette(chosenColor) {
+            if (isSpinning) return;
+
+            const bet = getBet();
+            if (!bet) return;
+
+            balance -= bet;
+            updateBalanceDisplay();
+
+            isSpinning = true;
+            statusText.innerText = "Колесо запущено...";
+
+            wheelTape.style.transition = "none";
+            wheelTape.style.transform = "translateX(0px)";
+
+            const targetIndex = Math.floor(Math.random() * 40) + 160;
+            const winner = fullSectors[targetIndex];
+
+            const finalShift =
+                -(targetIndex * sectorWidth) +
+                (document.querySelector(".wheel-wrapper").offsetWidth / 2 - sectorWidth / 2);
+
+            setTimeout(() => {
+                wheelTape.style.transition = "transform 4s cubic-bezier(0.1, 0.8, 0.1, 1)";
+                wheelTape.style.transform = `translateX(${finalShift}px)`;
+            }, 50);
+
+            setTimeout(() => {
+                isSpinning = false;
+
+                if (winner.color === chosenColor) {
+                    balance += bet * winner.m;
+                    statusText.innerText = `🎉 Вы выиграли ${bet * winner.m} ₽!`;
+                } else {
+                    statusText.innerText = `😢 Проигрыш. Выпал цвет x${winner.m}`;
+                }
+
+                updateBalanceDisplay();
+            }, 4100);
+        }
+
+        // --- СТАВКИ НА МАТЧИ ---
+        const teams = [
+            "Англия", "Конго", "Бразилия", "Япония",
+            "Франция", "Марокко", "Германия", "Исландия",
+            "Аргентина", "Канада", "Испания", "Египет"
+        ];
+
+        function generateMatches() {
+            const container = document.getElementById("matchesContainer");
+            container.innerHTML = "";
+
+            const tempTeams = [...teams].sort(() => 0.5 - Math.random());
+
+            for (let i = 0; i < 3; i++) {
+                const t1 = tempTeams.pop();
+                const t2 = tempTeams.pop();
+
+                const card = document.createElement("div");
+                card.classList.add("match-card");
+
+                card.innerHTML = `
+                    <div class="match-teams">${t1} vs ${t2}</div>
+                    <div class="match-btns">
+                        <button class="btn btn-team" onclick="betOnMatch('${t1}', '${t2}', '${t1}')">П1 (x2.0)</button>
+                        <button class="btn btn-team" onclick="betOnMatch('${t1}', '${t2}', 'Ничья')">Х (x2.0)</button>
+                        <button class="btn btn-team" onclick="betOnMatch('${t1}', '${t2}', '${t2}')">П2 (x2.0)</button>
+                    </div>
+                `;
+
+                container.appendChild(card);
+            }
+        }
+
+        function betOnMatch(t1, t2, choice) {
+            const bet = getBet();
+            if (!bet) return;
+
+            balance -= bet;
+            updateBalanceDisplay();
+
+            const outcomes = [t1, t2, "Ничья"];
+            const actualWinner = outcomes[Math.floor(Math.random() * 3)];
+
+            if (choice === actualWinner) {
+                balance += bet * 2;
+                statusText.innerText =
+                    `⚽ Матч завершен! Результат: ${actualWinner}. Ваша ставка зашла (+${bet * 2} ₽)`;
+            } else {
+                statusText.innerText =
+                    `😢 Минус ставка! Результат матча: ${actualWinner}, а вы ставили на ${choice}.`;
+            }
+
+            updateBalanceDisplay();
+            generateMatches();
+        }
+
+        // --- МИНЫ ---
+        let minesActive = false;
+        let minePositions = [];
+        let currentMinesBet = 0;
+        let currentMinesMultiplier = 1.0;
+        let successfulClicks = 0;
+
+        function startMinesGame() {
+            const bet = getBet();
+            if (!bet) return;
+
+            balance -= bet;
+            updateBalanceDisplay();
+
+            currentMinesBet = bet;
+            minesActive = true;
+            currentMinesMultiplier = 1.0;
+            successfulClicks = 0;
+
+            document.getElementById("btnMineStart").disabled = true;
+            document.getElementById("btnMineCashout").disabled = false;
+            globalBetInput.disabled = true;
+
+            minePositions = [];
+
+            while (minePositions.length < 5) {
+                const r = Math.floor(Math.random() * 25);
+
+                if (!minePositions.includes(r)) {
+                    minePositions.push(r);
+                }
+            }
+
+            const grid = document.getElementById("minesGrid");
+            grid.innerHTML = "";
+
+            for (let i = 0; i < 25; i++) {
+                const cell = document.createElement("div");
+                cell.classList.add("mine-cell");
+                cell.dataset.index = i;
+                cell.onclick = () => clickMineCell(cell, i);
+                grid.appendChild(cell);
+            }
+
+            updateMinesStatus();
+            statusText.innerText = "Игра «Мины» началась! Кликайте по клеткам осторожно.";
+        }
+
+        function clickMineCell(cell, index) {
+            if (!minesActive || cell.classList.contains("safe") || cell.classList.contains("blown")) {
+                return;
+            }
+
+            if (minePositions.includes(index)) {
+                cell.classList.add("blown");
+                cell.innerText = "💣";
+                endMinesGame(false);
+            } else {
+                cell.classList.add("safe");
+                cell.innerText = "💎";
+
+                successfulClicks++;
+                currentMinesMultiplier *= 1.5;
+
+                updateMinesStatus();
+
+                if (successfulClicks === 20) {
+                    cashoutMines();
+                }
+            }
+        }
+
+        function updateMinesStatus() {
+            const possibleWin = Math.floor(currentMinesBet * currentMinesMultiplier);
+
+            document.getElementById("minesStatus").innerText =
+                `Текущий кеф: x${currentMinesMultiplier.toFixed(2)} | Возможный куш: ${possibleWin} ₽`;
+        }
+
+        function cashoutMines() {
+            if (!minesActive) return;
+
+            const finalPrize = Math.floor(currentMinesBet * currentMinesMultiplier);
+
+            balance += finalPrize;
+            updateBalanceDisplay();
+
+            statusText.innerText = `💰 Вы вовремя остановились и забрали ${finalPrize} ₽!`;
+            endMinesGame(true);
+        }
+
+        function endMinesGame(isWin) {
+            minesActive = false;
+
+            document.getElementById("btnMineStart").disabled = false;
+            document.getElementById("btnMineCashout").disabled = true;
+            globalBetInput.disabled = false;
+
+            if (!isWin) {
+                statusText.innerText = "💥 БОМБА! Вы подорвались, все деньги этой ставки сгорели.";
+
+                const cells = document.querySelectorAll(".mine-cell");
+
+                minePositions.forEach(pos => {
+                    cells[pos].classList.add("blown");
+                    cells[pos].innerText = "💣";
+                });
+            }
+        }
+
+        // Перед закрытием или обновлением страницы фиксируем актуальный баланс.
+        window.addEventListener("pagehide", () => {
+            saveGameProgress(GAME_NAME, balance);
+        });
+    </script>
+</body>
+</html>
